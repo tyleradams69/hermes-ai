@@ -1,0 +1,232 @@
+{
+  "cookies": [
+    {
+      "name": "_GRECAPTCHA",
+      "value": "09AKhCRwhMBV_aozu6NZTxt60xAgQrgTYIHNdiMrJyuYJ5_JGxrWp9Otb3ZQVkPhNZTbSf2WKvP7AoGaWQ01fz3vY",
+      "domain": "www.google.com",
+      "path": "/recaptcha",
+      "expires": 1794155499.155151,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "SNID",
+      "value": "AEDUgYbl4txdLbAGHzCyP3hyUOcIBkZVYOFV_IqsCimSuHRB8FermnxtP6YMa3nieL9sb8z7opHEAbPe9j3M5WjZXREwT9TvCg",
+      "domain": ".google.com",
+      "path": "/verify",
+      "expires": 1794414695.608713,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ac_ss",
+      "value": "835994:1:1784648645",
+      "domain": "www.apple.com",
+      "path": "/",
+      "expires": 1794152645.969551,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "geo",
+      "value": "US",
+      "domain": ".apple.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "at_check",
+      "value": "true",
+      "domain": ".apple.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "s_cc",
+      "value": "true",
+      "domain": ".apple.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "mk_epub",
+      "value": "%7B%22btuid%22%3A%221hxcxoo%22%2C%22prop57%22%3A%22www.us.homepage%22%7D",
+      "domain": ".apple.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "dssid2",
+      "value": "a3e126ec-be2b-479e-9e8b-62cfa966afc0",
+      "domain": ".apple.com",
+      "path": "/",
+      "expires": 1810136646.21944,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "dssf",
+      "value": "1",
+      "domain": ".apple.com",
+      "path": "/",
+      "expires": 1810136646.219465,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "as_pcts",
+      "value": "AcCub3fVRzslb9QazUK7dLtfsdKzTCop_BUvxNYrpjRHyaLOMxO8ZOZHv7bI6xooiOhWymjjyFT8TtsyadgeZ6Xd59ynHC08OSNbBCS3QufXP:BG6oiLsJrftwmSSSL6d0axsLZTT2+vmN1GOsZa_I",
+      "domain": ".apple.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "as_dc",
+      "value": "ucp5",
+      "domain": ".apple.com",
+      "path": "/",
+      "expires": 1778607846.219499,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "shld_bt_m",
+      "value": "rm_IaMle20AuaQ6nCXZwfg|1778607846|VmR-JhekEbYdYRaEwqoRAQ|YrhPeZa3CKtr2hiyC2_bXW6OrsM",
+      "domain": ".apple.com",
+      "path": "/",
+      "expires": 1778607846.219511,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "AEC",
+      "value": "AaJma5vN3IasdL5VdU4oOURvo0GZvUVl0bKxUUFZj3gMMQxeO1ctdbfeog",
+      "domain": ".google.com",
+      "path": "/",
+      "expires": 1794155495.564712,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__Secure-BUCKET",
+      "value": "CJgF",
+      "domain": ".google.com",
+      "path": "/",
+      "expires": 1794155495.564762,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "GOOGLE_ABUSE_EXEMPTION",
+      "value": "ID=84df36855e7e2e44:TM=1778603495:C=R:IP=38.19.186.13-:S=z9S1oAkkMO_-TmqFajAy9N8",
+      "domain": ".google.com",
+      "path": "/",
+      "expires": 1778614295.027357,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "NID",
+      "value": "531=ZmnsvOCohc0B84_rwvCZ2NHSiRSyTOFuZF6G4ugW4SN6hvYTF_dGvFWu_a9DapNkZL9VFxwGKJGbEcWwDlWqifBbRo3HaArUheFrvhcOqdapwTIRUoAP42DgYNBCrkUs_bzcBfrFvZ_KsfA-fszQjgXjqCJzoNQeuR2LBEPskOD9yDLM_evHf_YVpPe93k3jAKQqGV_DflpxWaTroNdWbLCqGdXSd83bn2TpEbu6emrMm5kSjGcWvAat3sfkxaENnP0rVbgp13YWkCpw",
+      "domain": ".google.com",
+      "path": "/",
+      "expires": 1794414695.532172,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://www.google.com",
+      "localStorage": [
+        {
+          "name": "sb_wiz.zpc.gws-wiz-serp.",
+          "value": "{\"0\":[[\"ai automation companies\",0,[512,650,273,871,362,308],{\"zl\":90000}],[\"ai automation tools\",0,[512,650,273,871,362,308],{\"zl\":90000}],[\"ai automation examples\",0,[512,650,273,871,362,308],{\"zl\":90000}],[\"automation anywhere competitors\",0,[512,650,273,871,362,308],{\"zl\":90000}],[\"rpa automation\",0,[512,650,273,871,362,308],{\"zl\":90000}],[\"lindy ai alternatives\",0,[512,650,468,357,871,362,308,394,439],{\"zl\":90000}],[\"ai automation agency\",0,[512,650,468,357,871,362,308,394,439],{\"zl\":90000}],[\"free ai automation tool\",0,[512,650,439,357,871,362,308,394],{\"zl\":90000}],[\"ai web automation\",0,[512,650,439,357,871,362,308,394],{\"zl\":90000}],[\"ai workflow automation free\",0,[512,650,468,357,871,362,308,394,439],{\"zl\":90000}],[\"democrats supreme court\",0,[3,143,362,308],{\"zl\":90001,\"zp\":{\"gs_ss\":\"1\"},\"zf\":33}],[\"abt electronics appliance survey ranking\",0,[3,143,362,308],{\"zl\":90001,\"zf\":33,\"zp\":{\"gs_ss\":\"1\"}}],[\"green bay packers news\",0,[3,143,362,308],{\"zf\":33,\"zp\":{\"gs_ss\":\"1\"},\"zl\":90001}],[\"amazon rings of power season 3\",0,[3,143,362,308],{\"zf\":33,\"zp\":{\"gs_ss\":\"1\"},\"zl\":90001}],[\"discord nitro xbox game pass games\",0,[3,143,362,308],{\"zl\":90001,\"zf\":33,\"zp\":{\"gs_ss\":\"1\"}}],[\"princess cruise ship norovirus outbreak\",0,[3,143,362,308],{\"zp\":{\"gs_ss\":\"1\"},\"zf\":33,\"zl\":90001}],[\"slushie machine\",0,[3,143,362,308],{\"zl\":90001,\"zp\":{\"gs_ss\":\"1\"},\"zf\":33}],[\"morocco missing soldiers\",0,[3,143,362,308],{\"zl\":90001,\"zp\":{\"gs_ss\":\"1\"},\"zf\":33}],[\"golf pga championship 2026\",0,[3,143,362,308],{\"zl\":90001,\"zp\":{\"gs_ss\":\"1\"},\"zf\":33}],[\"eighty six anime crunchyroll\",0,[3,143,362,308],{\"zf\":33,\"zp\":{\"gs_ss\":\"1\"},\"zl\":90001}]],\"1\":{\"av\":\"16735497174365104307\",\"ag\":{\"a\":{\"8\":[\"Trending searches\"],\"90000\":[\"Related to recent searches\",\"\",\"\",7],\"90001\":[\"Trending searches\",\"\",1,10]}}}}"
+        },
+        {
+          "name": "sb_wiz.pq_tm_hp",
+          "value": "1778604002383"
+        },
+        {
+          "name": "rc::f",
+          "value": "0aAPQrAoY1TwpgdGZH0Myn_UFCqqtoN06xjeFANxH1Fd2YPD4Qk34rV3gs65WH1myTn_O02aE"
+        },
+        {
+          "name": "sb_wiz.pq",
+          "value": "AI automation agencies competitors"
+        },
+        {
+          "name": "rc::a",
+          "value": "NmNvMm9xOTAzM2pz"
+        },
+        {
+          "name": "sb_wiz.sr_di",
+          "value": "GK_fy7fKxNbvvgEYp_G05eHu0NgQGIuNzKbYkP-GUBjrh7e-48GJr9gBGMmD5Prar8LUrwE"
+        },
+        {
+          "name": "_grecaptcha",
+          "value": "09AKhCRwgBlaLawMdx25VP_EdaidDOA4V_94e_KjgrOQM_-8UpZ_oIAyO23IORCAa0_1gUJQvrqd4SscaNhgVbPGY-b2faSZTsNdcKT2nJbjJpZMAUPcub-JwjC9gyOr0C"
+        },
+        {
+          "name": "sb_wiz.sc_pq",
+          "value": ""
+        },
+        {
+          "name": "sb_wiz.qc",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.apple.com",
+      "localStorage": [
+        {
+          "name": "mk_epub",
+          "value": "{\"deferredBeacon\":{\"prop57\":\"www.us.homepage\",\"btuid\":\"1hxcxoo\"}}"
+        },
+        {
+          "name": "ssmvt-data",
+          "value": "[{\"experimentId\":\"2570-us-mac-hp-hierarchy\",\"variationId\":\"B\",\"scrubDate\":1786376646116}]"
+        },
+        {
+          "name": "mk_epub_expiry",
+          "value": "1778607846121"
+        },
+        {
+          "name": "ls-opt-out",
+          "value": "{\"e\":5640,\"v\":{\"dismissals\":0}}"
+        },
+        {
+          "name": "ac-store-cache",
+          "value": "{\"ttl\":1778600826193,\"items\":0,\"cn\":\"\",\"api\":{\"flyout\":\"/%5Bstorefront%5D/shop/bag/flyout\",\"addToBag\":\"/%5Bstorefront%5D/shop/bag/add?product=%5Bpart%5D\"},\"key\":\"SFX9YPYY9PPXCU9KH\",\"sfLoc\":\"us\"}"
+        }
+      ]
+    }
+  ]
+}

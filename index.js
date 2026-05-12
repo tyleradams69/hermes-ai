@@ -4,6 +4,8 @@ import readline from "readline";
 import { MemoryClient } from "mem0ai";
 import { chromium } from "playwright";
 import fs from "fs";
+import { competitorAnalysis } from "./competitor-upgrade.js";
+import { generateOutreach } from "./outreach-upgrade.js";
 
 dotenv.config();
 
@@ -21,34 +23,92 @@ const rl = readline.createInterface({
 });
 
 let browser = null;
+let context = null;
 let page = null;
-
-let dryRunMode = false;
 
 async function ensureBrowser() {
 
   if (!browser) {
+
     browser = await chromium.launch({
-      headless: true
+      headless: false
     });
 
-    page = await browser.newPage();
+    const sessionExists =
+      fs.existsSync("session.json");
+
+    if (sessionExists) {
+
+      context = await browser.newContext({
+        storageState: "session.json"
+      });
+
+    } else {
+
+      context = await browser.newContext();
+    }
+
+    page = await context.newPage();
+  }
+}
+
+async function saveSession() {
+
+  if (context) {
+
+    await context.storageState({
+      path: "session.json"
+    });
   }
 }
 
 function askApproval(question) {
+
   return new Promise((resolve) => {
+
     rl.question(`${question} yes/no: `, (answer) => {
+
       resolve(answer.toLowerCase() === "yes");
     });
   });
 }
 
-async function openBrowserPage(url) {
+function saveReport(filename, content) {
 
-  if (dryRunMode) {
-    return `[DRY RUN] Would open browser at ${url}`;
-  }
+  const safeName = filename
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-");
+
+  const finalName = `${safeName}.md`;
+
+  fs.writeFileSync(finalName, content);
+
+  return finalName;
+}
+
+function parseCSV(path) {
+
+  const raw =
+    fs.readFileSync(path, "utf8");
+
+  const lines =
+    raw.trim().split("\n");
+
+  const rows = lines.slice(1);
+
+  return rows.map(row => {
+
+    const [company, website] =
+      row.split(",");
+
+    return {
+      company: company.trim(),
+      website: website.trim()
+    };
+  });
+}
+
+async function structuredWebsiteAudit(url) {
 
   await ensureBrowser();
 
@@ -56,59 +116,160 @@ async function openBrowserPage(url) {
 
   const title = await page.title();
 
-  const bodyText = await page.locator("body").innerText();
+  const bodyText =
+    await page.locator("body").innerText();
 
-  await page.screenshot({
-    path: "browser-screenshot.png"
-  });
+  const links =
+    await page.locator("a").count();
 
-  return `Opened ${url}
+  const images =
+    await page.locator("img").count();
 
-Page title:
+  const headings =
+    await page.locator("h1, h2, h3")
+      .evaluateAll(
+        els => els.map(el => el.innerText)
+      );
+
+  const auditPrompt = `
+You are an elite website audit consultant.
+
+Analyze this website and produce a concise professional audit.
+
+URL:
+${url}
+
+TITLE:
 ${title}
 
-Page text preview:
-${bodyText.slice(0, 1000)}
+WORD COUNT:
+${bodyText.split(" ").length}
 
-Screenshot saved as browser-screenshot.png`;
+LINK COUNT:
+${links}
+
+IMAGE COUNT:
+${images}
+
+HEADINGS:
+${JSON.stringify(headings, null, 2)}
+
+PAGE TEXT:
+${bodyText.slice(0, 4000)}
+
+Return:
+
+1. Executive Summary
+2. Brand Clarity
+3. Messaging Quality
+4. UX Observations
+5. SEO Observations
+6. Conversion Opportunities
+7. Top 5 Recommendations
+8. Overall Score /10
+
+Keep it practical and business-focused.
+`;
+
+  const auditResponse =
+    await client.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a professional website auditor."
+        },
+        {
+          role: "user",
+          content: auditPrompt
+        }
+      ]
+    });
+
+  return auditResponse
+    .choices[0]
+    .message
+    .content;
 }
 
-async function googleSearch(query) {
+async function runLeadPipeline({
+  businessName,
+  website
+}) {
 
-  if (dryRunMode) {
-    return `[DRY RUN] Would Google search: ${query}`;
+  const audit =
+    await structuredWebsiteAudit(website);
+
+  const auditFile =
+    saveReport(
+      `audit-${businessName}`,
+      audit
+    );
+
+  const outreach =
+    await generateOutreach({
+      client,
+      businessName,
+      website,
+      auditSummary: audit
+    });
+
+  return {
+    audit,
+    auditFile,
+    outreach: outreach.output,
+    outreachFile: outreach.filename
+  };
+}
+
+async function batchLeadPipeline(csvPath) {
+
+  const leads =
+    parseCSV(csvPath);
+
+  const results = [];
+
+  for (const lead of leads) {
+
+    console.log(
+      `\nProcessing ${lead.company}...`
+    );
+
+    try {
+
+      const result =
+        await runLeadPipeline({
+          businessName: lead.company,
+          website: lead.website
+        });
+
+      results.push({
+        company: lead.company,
+        success: true,
+        auditFile: result.auditFile,
+        outreachFile: result.outreachFile
+      });
+
+    } catch (err) {
+
+      results.push({
+        company: lead.company,
+        success: false,
+        error: err.message
+      });
+    }
   }
 
-  await ensureBrowser();
+  const summary =
+    JSON.stringify(results, null, 2);
 
-  await page.goto("https://www.google.com");
+  fs.writeFileSync(
+    "batch-results.json",
+    summary
+  );
 
-  await page.fill("textarea[name='q']", query);
-
-  await page.keyboard.press("Enter");
-
-  await page.waitForLoadState("networkidle");
-
-  const title = await page.title();
-
-  const bodyText = await page.locator("body").innerText();
-
-  await page.screenshot({
-    path: "google-results.png"
-  });
-
-  return `Google search completed.
-
-Query:
-${query}
-
-Page title:
-${title}
-
-Search results preview:
-${bodyText.slice(0, 1500)}
-
-Screenshot saved as google-results.png`;
+  return summary;
 }
 
 const messages = [
@@ -117,23 +278,24 @@ const messages = [
     content: `
 You are Hermes, the AI operating assistant for Liminull AI.
 
-You have browser tools.
+AVAILABLE TOOLS:
 
-OPEN_BROWSER:
-OPEN_BROWSER: https://example.com
+LEAD_PIPELINE:
+LEAD_PIPELINE: Company Name | https://website.com
 
-GOOGLE SEARCH:
-GOOGLE_SEARCH: search query
+BATCH_LEAD_PIPELINE:
+BATCH_LEAD_PIPELINE: leads.csv
 
-IMPORTANT:
-- Use exact tool labels
-- Use one tool at a time
-- Wait for tool results
-- Never repeat successful actions
-- Treat dry-run actions as completed
-- Prefer high-level tools over low-level browser actions
+COMPETITOR_ANALYSIS:
+COMPETITOR_ANALYSIS: AI automation agencies
 
-Keep responses practical and step-by-step.
+CRITICAL TOOL RULES:
+- NEVER narrate
+- ONLY output tool commands
+- Use exact syntax
+- One tool at a time
+
+Keep responses operational.
 `
   }
 ];
@@ -145,160 +307,156 @@ async function askUser() {
     if (input.toLowerCase() === "exit") {
 
       if (browser) {
+
+        await saveSession();
+
         await browser.close();
       }
 
       console.log("Hermes: Goodbye.");
+
       rl.close();
+
       return;
     }
 
-    if (input.toLowerCase() === "dry run on") {
+    const response =
+      await client.chat.completions.create({
+        model: "gpt-4.1-mini",
+        messages: [
+          ...messages,
+          {
+            role: "user",
+            content: input
+          }
+        ]
+      });
 
-      dryRunMode = true;
+    const reply =
+      response.choices[0].message.content;
 
-      console.log(
-        "Hermes: Dry-run mode is ON."
-      );
-
-      askUser();
-      return;
-    }
-
-    if (input.toLowerCase() === "dry run off") {
-
-      dryRunMode = false;
-
-      console.log(
-        "Hermes: Dry-run mode is OFF."
-      );
-
-      askUser();
-      return;
-    }
-
-    const memories = await memory.search(input, {
-      filters: {
-        user_id: "tyler"
-      }
-    });
-
-    let memoryContext = "";
-
-    if (memories.results?.length > 0) {
-
-      memoryContext = memories.results
-        .map(m => m.memory)
-        .join("\n");
-    }
-
-    const fullPrompt = `
-Relevant memory:
-${memoryContext}
-
-Dry-run mode:
-${dryRunMode ? "ON" : "OFF"}
-
-User message:
-${input}
-`;
-
-    messages.push({
-      role: "user",
-      content: fullPrompt
-    });
-
-    let response = await client.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages
-    });
-
-    let reply = response.choices[0].message.content;
-
-    let toolSteps = 0;
-    const maxToolSteps = 6;
-
-    while (
-      toolSteps < maxToolSteps &&
-      (
-        reply.startsWith("OPEN_BROWSER:") ||
-        reply.startsWith("GOOGLE_SEARCH:")
+    // BATCH LEAD PIPELINE
+    if (
+      reply.startsWith(
+        "BATCH_LEAD_PIPELINE:"
       )
     ) {
 
-      toolSteps++;
+      const csvPath =
+        reply.replace(
+          "BATCH_LEAD_PIPELINE:",
+          ""
+        ).trim();
 
-      // OPEN BROWSER
-      if (reply.startsWith("OPEN_BROWSER:")) {
+      console.log(
+        `\nHermes wants to process lead batch: ${csvPath}`
+      );
 
-        const url = reply
-          .replace("OPEN_BROWSER:", "")
-          .trim();
-
-        console.log(`\nHermes wants to open browser: ${url}`);
-
-        const approved = await askApproval(
-          "Allow browser action?"
+      const approved =
+        await askApproval(
+          "Allow batch lead pipeline?"
         );
 
-        if (!approved) {
-          reply = "Browser action cancelled.";
-          break;
-        }
+      if (!approved) {
 
-        const result = await openBrowserPage(url);
-
-        console.log("\nBrowser result:");
-        console.log(result);
-
-        messages.push({
-          role: "assistant",
-          content: `
-Browser action completed:
-${result}
-
-Treat this action as completed.
-`
-        });
-
-        break;
-      }
-
-      // GOOGLE SEARCH
-      if (reply.startsWith("GOOGLE_SEARCH:")) {
-
-        const query = reply
-          .replace("GOOGLE_SEARCH:", "")
-          .trim();
-
-        console.log(`\nHermes wants to Google search: ${query}`);
-
-        const approved = await askApproval(
-          "Allow Google search?"
+        console.log(
+          "Batch pipeline cancelled."
         );
 
-        if (!approved) {
-          reply = "Google search cancelled.";
-          break;
-        }
+        askUser();
 
-        const result = await googleSearch(query);
+        return;
+      }
 
-        console.log("\nGoogle search result:");
-        console.log(result);
+      const result =
+        await batchLeadPipeline(csvPath);
 
-        messages.push({
-          role: "assistant",
-          content: `
-Google search completed:
-${result}
+      console.log(
+        "\nBATCH PIPELINE RESULTS:\n"
+      );
 
-Treat this action as completed.
-`
+      console.log(result);
+
+      console.log(
+        "\nSaved summary: batch-results.json"
+      );
+
+      askUser();
+
+      return;
+    }
+
+    // LEAD PIPELINE
+    if (
+      reply.startsWith(
+        "LEAD_PIPELINE:"
+      )
+    ) {
+
+      const raw =
+        reply.replace(
+          "LEAD_PIPELINE:",
+          ""
+        ).trim();
+
+      const parts =
+        raw.split("|");
+
+      const businessName =
+        parts[0]?.trim();
+
+      const website =
+        parts[1]?.trim();
+
+      console.log(
+        `\nHermes wants to run lead pipeline for: ${businessName}`
+      );
+
+      const approved =
+        await askApproval(
+          "Allow lead pipeline?"
+        );
+
+      if (!approved) {
+
+        console.log(
+          "Lead pipeline cancelled."
+        );
+
+        askUser();
+
+        return;
+      }
+
+      const result =
+        await runLeadPipeline({
+          businessName,
+          website
         });
 
-        break;
-      }
+      console.log(
+        "\nSTRUCTURED AUDIT:\n"
+      );
+
+      console.log(result.audit);
+
+      console.log(
+        `\nSaved audit: ${result.auditFile}`
+      );
+
+      console.log(
+        "\nGENERATED OUTREACH:\n"
+      );
+
+      console.log(result.outreach);
+
+      console.log(
+        `\nSaved outreach: ${result.outreachFile}`
+      );
+
+      askUser();
+
+      return;
     }
 
     console.log("\nHermes:", reply);
@@ -308,11 +466,7 @@ Treat this action as completed.
 }
 
 console.log(
-  "Hermes online with smart browser automation."
-);
-
-console.log(
-  "Commands: dry run on | dry run off | exit"
+  "Hermes online with scalable lead pipeline workflows."
 );
 
 askUser();

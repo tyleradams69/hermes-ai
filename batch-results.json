@@ -1,0 +1,32 @@
+[
+  {
+    "company": "Acme Roofing",
+    "success": true,
+    "auditFile": "audit-acme-roofing.md",
+    "outreachFile": "outreach-acme-roofing.md"
+  },
+  {
+    "company": "Bright Dental",
+    "success": true,
+    "auditFile": "audit-bright-dental.md",
+    "outreachFile": "outreach-bright-dental.md"
+  },
+  {
+    "company": "Rapid HVAC",
+    "success": true,
+    "auditFile": "audit-rapid-hvac.md",
+    "outreachFile": "outreach-rapid-hvac.md"
+  },
+  {
+    "company": "Northstar Plumbing",
+    "success": true,
+    "auditFile": "audit-northstar-plumbing.md",
+    "outreachFile": "outreach-northstar-plumbing.md"
+  },
+  {
+    "company": "Summit Electric",
+    "success": true,
+    "auditFile": "audit-summit-electric.md",
+    "outreachFile": "outreach-summit-electric.md"
+  }
+]
