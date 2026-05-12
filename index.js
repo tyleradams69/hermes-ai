@@ -8,6 +8,7 @@ import fs from "fs";
 import { competitorAnalysis } from "./competitor-upgrade.js";
 import { generateOutreach } from "./outreach-upgrade.js";
 import { enrichLeads } from "./enrich-leads.js";
+import { buildApprovalQueue } from "./approval-queue.js";
 
 dotenv.config();
 
@@ -293,6 +294,9 @@ BATCH_LEAD_PIPELINE: leads.csv
 ENRICH_LEADS:
 ENRICH_LEADS: leads.csv
 
+BUILD_APPROVAL_QUEUE:
+BUILD_APPROVAL_QUEUE: batch-results.json
+
 COMPETITOR_ANALYSIS:
 COMPETITOR_ANALYSIS: AI automation agencies
 
@@ -341,6 +345,51 @@ async function askUser() {
 
     const reply =
       response.choices[0].message.content;
+
+    // BUILD APPROVAL QUEUE
+    if (
+      reply.startsWith(
+        "BUILD_APPROVAL_QUEUE:"
+      )
+    ) {
+
+      const path =
+        reply.replace(
+          "BUILD_APPROVAL_QUEUE:",
+          ""
+        ).trim();
+
+      console.log(
+        `\nHermes wants to build approval queue from: ${path}`
+      );
+
+      const approved =
+        await askApproval(
+          "Allow approval queue build?"
+        );
+
+      if (!approved) {
+
+        console.log(
+          "Approval queue cancelled."
+        );
+
+        askUser();
+
+        return;
+      }
+
+      const queueFile =
+        buildApprovalQueue(path);
+
+      console.log(
+        `\nSaved approval queue: ${queueFile}`
+      );
+
+      askUser();
+
+      return;
+    }
 
     // ENRICH LEADS
     if (
@@ -450,144 +499,6 @@ async function askUser() {
       return;
     }
 
-    // LEAD PIPELINE
-    if (
-      reply.startsWith(
-        "LEAD_PIPELINE:"
-      )
-    ) {
-
-      const raw =
-        reply.replace(
-          "LEAD_PIPELINE:",
-          ""
-        ).trim();
-
-      const parts =
-        raw.split("|");
-
-      const businessName =
-        parts[0]?.trim();
-
-      const website =
-        parts[1]?.trim();
-
-      console.log(
-        `\nHermes wants to run lead pipeline for: ${businessName}`
-      );
-
-      const approved =
-        await askApproval(
-          "Allow lead pipeline?"
-        );
-
-      if (!approved) {
-
-        console.log(
-          "Lead pipeline cancelled."
-        );
-
-        askUser();
-
-        return;
-      }
-
-      const result =
-        await runLeadPipeline({
-          businessName,
-          website
-        });
-
-      console.log(
-        "\nSTRUCTURED AUDIT:\n"
-      );
-
-      console.log(result.audit);
-
-      console.log(
-        `\nSaved audit: ${result.auditFile}`
-      );
-
-      console.log(
-        "\nGENERATED OUTREACH:\n"
-      );
-
-      console.log(result.outreach);
-
-      console.log(
-        `\nSaved outreach: ${result.outreachFile}`
-      );
-
-      askUser();
-
-      return;
-    }
-
-    // COMPETITOR ANALYSIS
-    if (
-      reply.startsWith(
-        "COMPETITOR_ANALYSIS:"
-      )
-    ) {
-
-      const query =
-        reply.replace(
-          "COMPETITOR_ANALYSIS:",
-          ""
-        ).trim();
-
-      console.log(
-        `\nHermes wants to analyze competitors for: ${query}`
-      );
-
-      const approved =
-        await askApproval(
-          "Allow competitor analysis?"
-        );
-
-      if (!approved) {
-
-        console.log(
-          "Competitor analysis cancelled."
-        );
-
-        askUser();
-
-        return;
-      }
-
-      await ensureBrowser();
-
-      const result =
-        await competitorAnalysis({
-          client,
-          page,
-          query
-        });
-
-      console.log(
-        "\nCompetitor analysis:\n"
-      );
-
-      console.log(result);
-
-      const savedFile =
-        saveReport(
-          `competitor-analysis-${query}`,
-          result
-        );
-
-      console.log(
-        `\nSaved report: ${savedFile}`
-      );
-
-      await saveSession();
-
-      askUser();
-
-      return;
-    }
-
     console.log("\nHermes:", reply);
 
     askUser();
@@ -595,7 +506,7 @@ async function askUser() {
 }
 
 console.log(
-  "Hermes online with scalable outbound workflows."
+  "Hermes online with approval queue workflows."
 );
 
 askUser();
