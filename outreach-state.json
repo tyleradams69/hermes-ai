@@ -1,0 +1,33 @@
+{
+  "Acme Roofing": {
+    "status": "sent",
+    "approvedAt": "2026-05-12T21:38:16.395Z",
+    "updatedAt": "2026-05-12T22:24:51.122Z",
+    "followupFile": "followup-acme-roofing.md",
+    "followupGeneratedAt": "2026-05-12T21:42:10.886Z",
+    "toEmail": "valeraven47@gmail.com",
+    "sentAt": "2026-05-12T21:53:57.853Z",
+    "nextFollowupAt": "2024-01-01T00:00:00.000Z",
+    "followupCount": 1,
+    "lastFollowupGeneratedAt": "2026-05-12T22:00:21.805Z",
+    "latestFollowupFile": "followup-acme-roofing.md",
+    "replyStatus": "meeting_request",
+    "repliedAt": "2026-05-12T22:24:49.845Z",
+    "latestReply": "Hey, this looks interesting. I'd be open to a quick call next week.",
+    "pipelineStage": "meeting_requested"
+  },
+  "Bright Dental": {
+    "replyStatus": "not_interested",
+    "repliedAt": "2026-05-12T22:24:50.507Z",
+    "latestReply": "Not interested at the moment, thanks.",
+    "updatedAt": "2026-05-12T22:24:51.123Z",
+    "pipelineStage": "closed_lost"
+  },
+  "Rapid HVAC": {
+    "replyStatus": "pricing_request",
+    "repliedAt": "2026-05-12T22:24:51.120Z",
+    "latestReply": "Can you send pricing information?",
+    "updatedAt": "2026-05-12T22:24:51.123Z",
+    "pipelineStage": "pricing_requested"
+  }
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "company": "Acme Roofing",
+    "from": "owner@acmeroofing.com",
+    "subject": "Re: Website Improvements",
+    "body": "Hey, this looks interesting. I'd be open to a quick call next week."
+  },
+  {
+    "company": "Bright Dental",
+    "from": "office@brightdental.com",
+    "subject": "Re: Outreach",
+    "body": "Not interested at the moment, thanks."
+  },
+  {
+    "company": "Rapid HVAC",
+    "from": "team@rapidhvac.com",
+    "subject": "Re: Automation",
+    "body": "Can you send pricing information?"
+  }
+]
