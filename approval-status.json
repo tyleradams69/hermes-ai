@@ -1,0 +1,10 @@
+{
+  "Acme Roofing": {
+    "status": "approved",
+    "updatedAt": "2026-05-12T17:47:30.225Z"
+  },
+  "Bright Dental": {
+    "status": "rejected",
+    "updatedAt": "2026-05-12T17:48:05.116Z"
+  }
+}
