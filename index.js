@@ -9,6 +9,7 @@ import { competitorAnalysis } from "./competitor-upgrade.js";
 import { generateOutreach } from "./outreach-upgrade.js";
 import { enrichLeads } from "./enrich-leads.js";
 import { buildApprovalQueue } from "./approval-queue.js";
+import { reviewApprovalQueue } from "./review-queue.js";
 
 dotenv.config();
 
@@ -30,24 +31,18 @@ let context = null;
 let page = null;
 
 async function ensureBrowser() {
-
   if (!browser) {
-
     browser = await chromium.launch({
       headless: false
     });
 
-    const sessionExists =
-      fs.existsSync("session.json");
+    const sessionExists = fs.existsSync("session.json");
 
     if (sessionExists) {
-
       context = await browser.newContext({
         storageState: "session.json"
       });
-
     } else {
-
       context = await browser.newContext();
     }
 
@@ -56,9 +51,7 @@ async function ensureBrowser() {
 }
 
 async function saveSession() {
-
   if (context) {
-
     await context.storageState({
       path: "session.json"
     });
@@ -66,18 +59,14 @@ async function saveSession() {
 }
 
 function askApproval(question) {
-
   return new Promise((resolve) => {
-
     rl.question(`${question} yes/no: `, (answer) => {
-
       resolve(answer.toLowerCase() === "yes");
     });
   });
 }
 
 function saveReport(filename, content) {
-
   const safeName = filename
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "-");
@@ -90,20 +79,12 @@ function saveReport(filename, content) {
 }
 
 function parseCSV(path) {
-
-  const raw =
-    fs.readFileSync(path, "utf8");
-
-  const lines =
-    raw.trim().split("\n");
-
-  const rows =
-    lines.slice(1);
+  const raw = fs.readFileSync(path, "utf8");
+  const lines = raw.trim().split("\n");
+  const rows = lines.slice(1);
 
   return rows.map(row => {
-
-    const [company, website] =
-      row.split(",");
+    const [company, website] = row.split(",");
 
     return {
       company: company.trim(),
@@ -113,28 +94,18 @@ function parseCSV(path) {
 }
 
 async function structuredWebsiteAudit(url) {
-
   await ensureBrowser();
 
   await page.goto(url);
 
-  const title =
-    await page.title();
+  const title = await page.title();
+  const bodyText = await page.locator("body").innerText();
+  const links = await page.locator("a").count();
+  const images = await page.locator("img").count();
 
-  const bodyText =
-    await page.locator("body").innerText();
-
-  const links =
-    await page.locator("a").count();
-
-  const images =
-    await page.locator("img").count();
-
-  const headings =
-    await page.locator("h1, h2, h3")
-      .evaluateAll(
-        els => els.map(el => el.innerText)
-      );
+  const headings = await page
+    .locator("h1, h2, h3")
+    .evaluateAll(els => els.map(el => el.innerText));
 
   const auditPrompt = `
 You are an elite website audit consultant.
@@ -176,49 +147,37 @@ Return:
 Keep it practical and business-focused.
 `;
 
-  const auditResponse =
-    await client.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a professional website auditor."
-        },
-        {
-          role: "user",
-          content: auditPrompt
-        }
-      ]
-    });
+  const auditResponse = await client.chat.completions.create({
+    model: "gpt-4.1-mini",
+    messages: [
+      {
+        role: "system",
+        content: "You are a professional website auditor."
+      },
+      {
+        role: "user",
+        content: auditPrompt
+      }
+    ]
+  });
 
-  return auditResponse
-    .choices[0]
-    .message
-    .content;
+  return auditResponse.choices[0].message.content;
 }
 
-async function runLeadPipeline({
-  businessName,
-  website
-}) {
+async function runLeadPipeline({ businessName, website }) {
+  const audit = await structuredWebsiteAudit(website);
 
-  const audit =
-    await structuredWebsiteAudit(website);
+  const auditFile = saveReport(
+    `audit-${businessName}`,
+    audit
+  );
 
-  const auditFile =
-    saveReport(
-      `audit-${businessName}`,
-      audit
-    );
-
-  const outreach =
-    await generateOutreach({
-      client,
-      businessName,
-      website,
-      auditSummary: audit
-    });
+  const outreach = await generateOutreach({
+    client,
+    businessName,
+    website,
+    auditSummary: audit
+  });
 
   return {
     audit,
@@ -229,25 +188,17 @@ async function runLeadPipeline({
 }
 
 async function batchLeadPipeline(csvPath) {
-
-  const leads =
-    parseCSV(csvPath);
-
+  const leads = parseCSV(csvPath);
   const results = [];
 
   for (const lead of leads) {
-
-    console.log(
-      `\nProcessing ${lead.company}...`
-    );
+    console.log(`\nProcessing ${lead.company}...`);
 
     try {
-
-      const result =
-        await runLeadPipeline({
-          businessName: lead.company,
-          website: lead.website
-        });
+      const result = await runLeadPipeline({
+        businessName: lead.company,
+        website: lead.website
+      });
 
       results.push({
         company: lead.company,
@@ -255,9 +206,7 @@ async function batchLeadPipeline(csvPath) {
         auditFile: result.auditFile,
         outreachFile: result.outreachFile
       });
-
     } catch (err) {
-
       results.push({
         company: lead.company,
         success: false,
@@ -266,13 +215,9 @@ async function batchLeadPipeline(csvPath) {
     }
   }
 
-  const summary =
-    JSON.stringify(results, null, 2);
+  const summary = JSON.stringify(results, null, 2);
 
-  fs.writeFileSync(
-    "batch-results.json",
-    summary
-  );
+  fs.writeFileSync("batch-results.json", summary);
 
   return summary;
 }
@@ -297,6 +242,9 @@ ENRICH_LEADS: leads.csv
 BUILD_APPROVAL_QUEUE:
 BUILD_APPROVAL_QUEUE: batch-results.json
 
+REVIEW_APPROVAL_QUEUE:
+REVIEW_APPROVAL_QUEUE: outreach-approval-queue.md
+
 COMPETITOR_ANALYSIS:
 COMPETITOR_ANALYSIS: AI automation agencies
 
@@ -312,190 +260,216 @@ Keep responses operational.
 ];
 
 async function askUser() {
-
   rl.question("\nYou: ", async (input) => {
-
     if (input.toLowerCase() === "exit") {
-
       if (browser) {
-
         await saveSession();
-
         await browser.close();
       }
 
       console.log("Hermes: Goodbye.");
-
       rl.close();
-
       return;
     }
 
-    const response =
-      await client.chat.completions.create({
-        model: "gpt-4.1-mini",
-        messages: [
-          ...messages,
-          {
-            role: "user",
-            content: input
-          }
-        ]
-      });
+    const response = await client.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        ...messages,
+        {
+          role: "user",
+          content: input
+        }
+      ]
+    });
 
-    const reply =
-      response.choices[0].message.content;
+    const reply = response.choices[0].message.content;
 
-    // BUILD APPROVAL QUEUE
-    if (
-      reply.startsWith(
-        "BUILD_APPROVAL_QUEUE:"
-      )
-    ) {
+    // REVIEW APPROVAL QUEUE
+    if (reply.startsWith("REVIEW_APPROVAL_QUEUE:")) {
+      const path = reply
+        .replace("REVIEW_APPROVAL_QUEUE:", "")
+        .trim();
 
-      const path =
-        reply.replace(
-          "BUILD_APPROVAL_QUEUE:",
-          ""
-        ).trim();
+      console.log(`\nHermes wants to review approval queue: ${path}`);
 
-      console.log(
-        `\nHermes wants to build approval queue from: ${path}`
-      );
-
-      const approved =
-        await askApproval(
-          "Allow approval queue build?"
-        );
+      const approved = await askApproval("Allow queue review?");
 
       if (!approved) {
-
-        console.log(
-          "Approval queue cancelled."
-        );
-
+        console.log("Queue review cancelled.");
         askUser();
-
         return;
       }
 
-      const queueFile =
-        buildApprovalQueue(path);
+      const result = reviewApprovalQueue(path);
 
-      console.log(
-        `\nSaved approval queue: ${queueFile}`
-      );
+      console.log("\nQUEUE REVIEW:\n");
+      console.log(result);
 
       askUser();
+      return;
+    }
 
+    // BUILD APPROVAL QUEUE
+    if (reply.startsWith("BUILD_APPROVAL_QUEUE:")) {
+      const path = reply
+        .replace("BUILD_APPROVAL_QUEUE:", "")
+        .trim();
+
+      console.log(`\nHermes wants to build approval queue from: ${path}`);
+
+      const approved = await askApproval("Allow approval queue build?");
+
+      if (!approved) {
+        console.log("Approval queue cancelled.");
+        askUser();
+        return;
+      }
+
+      const queueFile = buildApprovalQueue(path);
+
+      console.log(`\nSaved approval queue: ${queueFile}`);
+
+      askUser();
       return;
     }
 
     // ENRICH LEADS
-    if (
-      reply.startsWith(
-        "ENRICH_LEADS:"
-      )
-    ) {
+    if (reply.startsWith("ENRICH_LEADS:")) {
+      const csvPath = reply
+        .replace("ENRICH_LEADS:", "")
+        .trim();
 
-      const csvPath =
-        reply.replace(
-          "ENRICH_LEADS:",
-          ""
-        ).trim();
+      console.log(`\nHermes wants to enrich leads from: ${csvPath}`);
 
-      console.log(
-        `\nHermes wants to enrich leads from: ${csvPath}`
-      );
-
-      const approved =
-        await askApproval(
-          "Allow lead enrichment?"
-        );
+      const approved = await askApproval("Allow lead enrichment?");
 
       if (!approved) {
-
-        console.log(
-          "Lead enrichment cancelled."
-        );
-
+        console.log("Lead enrichment cancelled.");
         askUser();
-
         return;
       }
 
-      const leads =
-        parseCSV(csvPath);
+      const leads = parseCSV(csvPath);
 
-      const enriched =
-        await enrichLeads({
-          client,
-          leads
-        });
+      const enriched = await enrichLeads({
+        client,
+        leads
+      });
 
-      console.log(
-        "\nENRICHED LEADS:\n"
-      );
-
+      console.log("\nENRICHED LEADS:\n");
       console.log(enriched);
 
-      console.log(
-        "\nSaved: enriched-leads.csv"
-      );
+      console.log("\nSaved: enriched-leads.csv");
 
       askUser();
-
       return;
     }
 
     // BATCH LEAD PIPELINE
-    if (
-      reply.startsWith(
-        "BATCH_LEAD_PIPELINE:"
-      )
-    ) {
+    if (reply.startsWith("BATCH_LEAD_PIPELINE:")) {
+      const csvPath = reply
+        .replace("BATCH_LEAD_PIPELINE:", "")
+        .trim();
 
-      const csvPath =
-        reply.replace(
-          "BATCH_LEAD_PIPELINE:",
-          ""
-        ).trim();
+      console.log(`\nHermes wants to process lead batch: ${csvPath}`);
 
-      console.log(
-        `\nHermes wants to process lead batch: ${csvPath}`
-      );
-
-      const approved =
-        await askApproval(
-          "Allow batch lead pipeline?"
-        );
+      const approved = await askApproval("Allow batch lead pipeline?");
 
       if (!approved) {
-
-        console.log(
-          "Batch pipeline cancelled."
-        );
-
+        console.log("Batch pipeline cancelled.");
         askUser();
-
         return;
       }
 
-      const result =
-        await batchLeadPipeline(csvPath);
+      const result = await batchLeadPipeline(csvPath);
 
-      console.log(
-        "\nBATCH PIPELINE RESULTS:\n"
-      );
-
+      console.log("\nBATCH PIPELINE RESULTS:\n");
       console.log(result);
 
-      console.log(
-        "\nSaved summary: batch-results.json"
-      );
+      console.log("\nSaved summary: batch-results.json");
 
       askUser();
+      return;
+    }
 
+    // LEAD PIPELINE
+    if (reply.startsWith("LEAD_PIPELINE:")) {
+      const raw = reply
+        .replace("LEAD_PIPELINE:", "")
+        .trim();
+
+      const parts = raw.split("|");
+
+      const businessName = parts[0]?.trim();
+      const website = parts[1]?.trim();
+
+      console.log(`\nHermes wants to run lead pipeline for: ${businessName}`);
+
+      const approved = await askApproval("Allow lead pipeline?");
+
+      if (!approved) {
+        console.log("Lead pipeline cancelled.");
+        askUser();
+        return;
+      }
+
+      const result = await runLeadPipeline({
+        businessName,
+        website
+      });
+
+      console.log("\nSTRUCTURED AUDIT:\n");
+      console.log(result.audit);
+
+      console.log(`\nSaved audit: ${result.auditFile}`);
+
+      console.log("\nGENERATED OUTREACH:\n");
+      console.log(result.outreach);
+
+      console.log(`\nSaved outreach: ${result.outreachFile}`);
+
+      askUser();
+      return;
+    }
+
+    // COMPETITOR ANALYSIS
+    if (reply.startsWith("COMPETITOR_ANALYSIS:")) {
+      const query = reply
+        .replace("COMPETITOR_ANALYSIS:", "")
+        .trim();
+
+      console.log(`\nHermes wants to analyze competitors for: ${query}`);
+
+      const approved = await askApproval("Allow competitor analysis?");
+
+      if (!approved) {
+        console.log("Competitor analysis cancelled.");
+        askUser();
+        return;
+      }
+
+      await ensureBrowser();
+
+      const result = await competitorAnalysis({
+        client,
+        page,
+        query
+      });
+
+      console.log("\nCompetitor analysis:\n");
+      console.log(result);
+
+      const savedFile = saveReport(
+        `competitor-analysis-${query}`,
+        result
+      );
+
+      console.log(`\nSaved report: ${savedFile}`);
+
+      await saveSession();
+
+      askUser();
       return;
     }
 
@@ -505,8 +479,6 @@ async function askUser() {
   });
 }
 
-console.log(
-  "Hermes online with approval queue workflows."
-);
+console.log("Hermes online with approval queue review workflows.");
 
 askUser();
