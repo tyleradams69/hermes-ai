@@ -4,8 +4,10 @@ import readline from "readline";
 import { MemoryClient } from "mem0ai";
 import { chromium } from "playwright";
 import fs from "fs";
+
 import { competitorAnalysis } from "./competitor-upgrade.js";
 import { generateOutreach } from "./outreach-upgrade.js";
+import { enrichLeads } from "./enrich-leads.js";
 
 dotenv.config();
 
@@ -94,7 +96,8 @@ function parseCSV(path) {
   const lines =
     raw.trim().split("\n");
 
-  const rows = lines.slice(1);
+  const rows =
+    lines.slice(1);
 
   return rows.map(row => {
 
@@ -103,7 +106,7 @@ function parseCSV(path) {
 
     return {
       company: company.trim(),
-      website: website.trim()
+      website: website?.trim() || ""
     };
   });
 }
@@ -114,7 +117,8 @@ async function structuredWebsiteAudit(url) {
 
   await page.goto(url);
 
-  const title = await page.title();
+  const title =
+    await page.title();
 
   const bodyText =
     await page.locator("body").innerText();
@@ -286,6 +290,9 @@ LEAD_PIPELINE: Company Name | https://website.com
 BATCH_LEAD_PIPELINE:
 BATCH_LEAD_PIPELINE: leads.csv
 
+ENRICH_LEADS:
+ENRICH_LEADS: leads.csv
+
 COMPETITOR_ANALYSIS:
 COMPETITOR_ANALYSIS: AI automation agencies
 
@@ -334,6 +341,63 @@ async function askUser() {
 
     const reply =
       response.choices[0].message.content;
+
+    // ENRICH LEADS
+    if (
+      reply.startsWith(
+        "ENRICH_LEADS:"
+      )
+    ) {
+
+      const csvPath =
+        reply.replace(
+          "ENRICH_LEADS:",
+          ""
+        ).trim();
+
+      console.log(
+        `\nHermes wants to enrich leads from: ${csvPath}`
+      );
+
+      const approved =
+        await askApproval(
+          "Allow lead enrichment?"
+        );
+
+      if (!approved) {
+
+        console.log(
+          "Lead enrichment cancelled."
+        );
+
+        askUser();
+
+        return;
+      }
+
+      const leads =
+        parseCSV(csvPath);
+
+      const enriched =
+        await enrichLeads({
+          client,
+          leads
+        });
+
+      console.log(
+        "\nENRICHED LEADS:\n"
+      );
+
+      console.log(enriched);
+
+      console.log(
+        "\nSaved: enriched-leads.csv"
+      );
+
+      askUser();
+
+      return;
+    }
 
     // BATCH LEAD PIPELINE
     if (
@@ -459,6 +523,71 @@ async function askUser() {
       return;
     }
 
+    // COMPETITOR ANALYSIS
+    if (
+      reply.startsWith(
+        "COMPETITOR_ANALYSIS:"
+      )
+    ) {
+
+      const query =
+        reply.replace(
+          "COMPETITOR_ANALYSIS:",
+          ""
+        ).trim();
+
+      console.log(
+        `\nHermes wants to analyze competitors for: ${query}`
+      );
+
+      const approved =
+        await askApproval(
+          "Allow competitor analysis?"
+        );
+
+      if (!approved) {
+
+        console.log(
+          "Competitor analysis cancelled."
+        );
+
+        askUser();
+
+        return;
+      }
+
+      await ensureBrowser();
+
+      const result =
+        await competitorAnalysis({
+          client,
+          page,
+          query
+        });
+
+      console.log(
+        "\nCompetitor analysis:\n"
+      );
+
+      console.log(result);
+
+      const savedFile =
+        saveReport(
+          `competitor-analysis-${query}`,
+          result
+        );
+
+      console.log(
+        `\nSaved report: ${savedFile}`
+      );
+
+      await saveSession();
+
+      askUser();
+
+      return;
+    }
+
     console.log("\nHermes:", reply);
 
     askUser();
@@ -466,7 +595,7 @@ async function askUser() {
 }
 
 console.log(
-  "Hermes online with scalable lead pipeline workflows."
+  "Hermes online with scalable outbound workflows."
 );
 
 askUser();
