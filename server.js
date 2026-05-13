@@ -58,8 +58,10 @@ app.get("/api/followups", (req, res) => {
 });
 
 // GET ACTIVITY FEED
-app.get("/api/activity", (req, res) => {
-  const activity = readActivity();
+app.get("/api/activity", async (req, res) => {
+
+  const activity =
+    await readActivity();
 
   res.json({
     activity
@@ -67,30 +69,34 @@ app.get("/api/activity", (req, res) => {
 });
 
 // GET COMPANY ACTIVITY
-app.get("/api/activity/:company", (req, res) => {
+app.get("/api/activity/:company", async (req, res) => {
 
   const company =
     req.params.company;
 
   const activity =
-    readActivity()
-      .filter(
-        (event) =>
-          event.company === company
-      );
+    await readActivity();
+
+  const filtered =
+    activity.filter(
+      (event) =>
+        event.company === company
+    );
 
   res.json({
-    activity
+    activity: filtered
   });
 });
 
 // TEST ACTIVITY EVENT
-app.post("/api/test-activity", (req, res) => {
-  const event = logActivity({
-    type: "test_event",
-    company: "Hermes System",
-    message: "Activity logging operational"
-  });
+app.post("/api/test-activity", async (req, res) => {
+
+  const event =
+    await logActivity({
+      type: "test_event",
+      company: "Hermes System",
+      message: "Activity logging operational"
+    });
 
   res.json({
     success: true,
@@ -99,30 +105,36 @@ app.post("/api/test-activity", (req, res) => {
 });
 
 // TEST INBOUND REPLY
-app.post("/api/replies/ingest", (req, res) => {
-  const result = ingestReply(req.body);
+app.post("/api/replies/ingest", async (req, res) => {
+
+  const result =
+    await ingestReply(req.body);
 
   res.json(result);
 });
 
 // INBOUND EMAIL WEBHOOK
-app.post("/api/inbound-webhook", (req, res) => {
+app.post("/api/inbound-webhook", async (req, res) => {
 
   const result =
-    processInboundWebhook(req.body);
+    await processInboundWebhook(req.body);
 
   res.json(result);
 });
 
 // APPROVE LEAD
-app.post("/api/lead/:company/approve", (req, res) => {
-  const company = req.params.company;
+app.post("/api/lead/:company/approve", async (req, res) => {
 
-  const event = logActivity({
-    type: "lead_approved",
-    company,
-    message: `${company} approved for outreach`
-  });
+  const company =
+    req.params.company;
+
+  const event =
+    await logActivity({
+      type: "lead_approved",
+      company,
+      message:
+        `${company} approved for outreach`
+    });
 
   res.json({
     success: true,
@@ -133,14 +145,18 @@ app.post("/api/lead/:company/approve", (req, res) => {
 });
 
 // REJECT LEAD
-app.post("/api/lead/:company/reject", (req, res) => {
-  const company = req.params.company;
+app.post("/api/lead/:company/reject", async (req, res) => {
 
-  const event = logActivity({
-    type: "lead_rejected",
-    company,
-    message: `${company} rejected from outbound queue`
-  });
+  const company =
+    req.params.company;
+
+  const event =
+    await logActivity({
+      type: "lead_rejected",
+      company,
+      message:
+        `${company} rejected from outbound queue`
+    });
 
   res.json({
     success: true,
@@ -151,14 +167,18 @@ app.post("/api/lead/:company/reject", (req, res) => {
 });
 
 // SEND OUTREACH
-app.post("/api/lead/:company/send", (req, res) => {
-  const company = req.params.company;
+app.post("/api/lead/:company/send", async (req, res) => {
 
-  const event = logActivity({
-    type: "outreach_sent",
-    company,
-    message: `Outreach send triggered for ${company}`
-  });
+  const company =
+    req.params.company;
+
+  const event =
+    await logActivity({
+      type: "outreach_sent",
+      company,
+      message:
+        `Outreach send triggered for ${company}`
+    });
 
   res.json({
     success: true,
@@ -169,14 +189,18 @@ app.post("/api/lead/:company/send", (req, res) => {
 });
 
 // GENERATE FOLLOW-UP
-app.post("/api/lead/:company/followup", (req, res) => {
-  const company = req.params.company;
+app.post("/api/lead/:company/followup", async (req, res) => {
 
-  const event = logActivity({
-    type: "followup_generated",
-    company,
-    message: `Follow-up generation triggered for ${company}`
-  });
+  const company =
+    req.params.company;
+
+  const event =
+    await logActivity({
+      type: "followup_generated",
+      company,
+      message:
+        `Follow-up generation triggered for ${company}`
+    });
 
   res.json({
     success: true,

@@ -1,53 +1,40 @@
-import fs from "fs";
-import path from "path";
+import { supabase } from "./supabase-client.js";
 
-const ACTIVITY_FILE =
-  path.join(process.cwd(), "activity-log.json");
+async function readActivity() {
+  const { data, error } = await supabase
+    .from("activities")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(250);
 
-function readActivity() {
-
-  if (!fs.existsSync(ACTIVITY_FILE)) {
+  if (error) {
+    console.error("Failed to read activity:", error);
     return [];
   }
 
-  try {
-
-    return JSON.parse(
-      fs.readFileSync(ACTIVITY_FILE, "utf8")
-    );
-
-  } catch {
-
-    return [];
-  }
+  return data || [];
 }
 
-function writeActivity(events) {
-
-  fs.writeFileSync(
-    ACTIVITY_FILE,
-    JSON.stringify(events, null, 2)
-  );
-}
-
-function logActivity(event) {
-
-  const events =
-    readActivity();
-
+async function logActivity(event) {
   const entry = {
-    id: `evt_${Date.now()}`,
-    timestamp: new Date().toISOString(),
-    ...event
+    type: event.type,
+    company: event.company || null,
+    message: event.message,
+    payload: event.payload || null
   };
 
-  events.unshift(entry);
+  const { data, error } = await supabase
+    .from("activities")
+    .insert(entry)
+    .select()
+    .single();
 
-  writeActivity(
-    events.slice(0, 250)
-  );
+  if (error) {
+    console.error("Failed to log activity:", error);
+    return entry;
+  }
 
-  return entry;
+  return data;
 }
 
 export {
