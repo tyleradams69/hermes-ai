@@ -1,3 +1,4 @@
+import { supabase } from "./supabase-client.js";
 import express from "express";
 import cors from "cors";
 
@@ -45,6 +46,98 @@ app.get("/api/state", async (req, res) => {
     await getAllLeads();
 
   res.json(state);
+});
+
+// MANUAL LEAD IMPORT
+app.post("/api/leads/import", async (req, res) => {
+
+  try {
+
+    const {
+      company,
+      email,
+      phone,
+      website
+    } = req.body;
+
+    if (!company) {
+
+      return res.status(400).json({
+        ok: false,
+        error: "Company required"
+      });
+    }
+
+    const newLead = {
+
+      company,
+
+      email: email || "",
+
+      phone: phone || "",
+
+      website: website || "",
+
+      status: "new",
+
+      pipeline_stage: "new_lead",
+
+      reply_status: "",
+
+      latest_reply: "",
+
+      followup_count: 0,
+
+      created_at: new Date().toISOString(),
+
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } =
+      await supabase
+        .from("leads")
+        .insert([newLead])
+        .select();
+
+    if (error) {
+
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: error.message
+      });
+    }
+
+    await supabase
+      .from("activities")
+      .insert([{
+
+        type: "lead_imported",
+
+        company,
+
+        message: `Lead manually imported: ${company}`,
+
+        payload: newLead,
+
+        created_at: new Date().toISOString()
+      }]);
+
+    res.json({
+      ok: true,
+      lead: data[0]
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      ok: false,
+      error: "Import failed"
+    });
+  }
 });
 
 // GET SINGLE COMPANY STATE
