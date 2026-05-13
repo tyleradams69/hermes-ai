@@ -2,11 +2,6 @@ import express from "express";
 import cors from "cors";
 
 import {
-  getOutreachState,
-  getAllOutreachState
-} from "./outreach-state.js";
-
-import {
   reviewFollowups
 } from "./followup-review.js";
 
@@ -23,6 +18,11 @@ import {
   processInboundWebhook
 } from "./inbound-webhook.js";
 
+import {
+  getAllLeads,
+  getLeadByCompany
+} from "./lead-store.js";
+
 const app = express();
 
 app.use(cors());
@@ -32,28 +32,39 @@ const PORT = 3002;
 
 // HEALTH CHECK
 app.get("/", (req, res) => {
+
   res.json({
     status: "Hermes API online"
   });
 });
 
-// GET ALL OUTREACH STATE
-app.get("/api/state", (req, res) => {
-  const state = getAllOutreachState();
+// GET ALL LEADS STATE
+app.get("/api/state", async (req, res) => {
+
+  const state =
+    await getAllLeads();
+
   res.json(state);
 });
 
 // GET SINGLE COMPANY STATE
-app.get("/api/state/:company", (req, res) => {
-  const company = req.params.company;
-  const state = getOutreachState(company);
+app.get("/api/state/:company", async (req, res) => {
+
+  const company =
+    req.params.company;
+
+  const state =
+    await getLeadByCompany(company);
 
   res.json(state || {});
 });
 
 // GET FOLLOWUP REVIEW
 app.get("/api/followups", (req, res) => {
-  const review = reviewFollowups();
+
+  const review =
+    reviewFollowups();
+
   res.json(review);
 });
 
