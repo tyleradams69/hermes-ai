@@ -48,6 +48,64 @@ app.get("/api/state", async (req, res) => {
   res.json(state);
 });
 
+// UPDATE LEAD PIPELINE STAGE
+app.post("/api/lead/:company/stage", async (req, res) => {
+  try {
+    const company = req.params.company;
+    const { pipeline_stage } = req.body;
+
+    if (!company || !pipeline_stage) {
+      return res.status(400).json({
+        ok: false,
+        error: "Company and pipeline_stage are required",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("leads")
+      .update({
+        pipeline_stage,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("company", company)
+      .select();
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+
+    await supabase.from("activities").insert([
+      {
+        type: "pipeline_stage_updated",
+        company,
+        message: `Pipeline stage updated to ${pipeline_stage}`,
+        payload: {
+          company,
+          pipeline_stage,
+        },
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    return res.json({
+      ok: true,
+      lead: data?.[0] || null,
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to update pipeline stage",
+    });
+  }
+});
+
 // MANUAL LEAD IMPORT
 app.post("/api/leads/import", async (req, res) => {
 
