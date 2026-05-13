@@ -20,6 +20,7 @@ import {
 } from "./inbound-webhook.js";
 
 import {
+import { scoreLead } from "./lead-intelligence.js";
   getAllLeads,
   getLeadByCompany
 } from "./lead-store.js";
@@ -61,7 +62,16 @@ app.post("/api/lead/:company/stage", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    
+    const intelligence =
+      scoreLead(newLead);
+
+    Object.assign(
+      newLead,
+      intelligence
+    );
+
+const { data, error } = await supabase
       .from("leads")
       .update({
         pipeline_stage,
