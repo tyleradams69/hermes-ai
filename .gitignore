@@ -1,5 +1,8 @@
 node_modules
+activity-log.json
+outreach-state.json
 .env
-browser-screenshot.png
-google-results.png
-hermes-actions.log
+.vercel
+git add .
+git commit -m "Hermes inbound reply runtime"
+git push

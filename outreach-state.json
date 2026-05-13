@@ -29,5 +29,11 @@
     "latestReply": "Can you send pricing information?",
     "updatedAt": "2026-05-12T22:24:51.123Z",
     "pipelineStage": "pricing_requested"
+  },
+  "Test Company": {
+    "pipelineStage": "meeting_requested",
+    "replyStatus": "meeting_request",
+    "latestReplyAt": "2026-05-13T05:28:35.301Z",
+    "updatedAt": "2026-05-13T05:28:35.301Z"
   }
 }
