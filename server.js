@@ -44,6 +44,482 @@ app.use(express.json());
 
 const PORT = 3002;
 
+// GET OPERATOR OUTCOME CORRELATIONS
+app.get("/api/operator-correlations", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("operator_outcome_correlations")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("confidence", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load operator correlations",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      correlations: data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load operator correlations",
+    });
+  }
+});
+
+
+// GENERATE OPERATOR OUTCOME CORRELATIONS
+app.post("/api/operator-correlations/generate", async (req, res) => {
+  try {
+    const {
+      business_id = "liminull",
+    } = req.body;
+
+    const actionsResult =
+      await supabase
+        .from("operator_actions")
+        .select("*")
+        .eq("business_id", business_id)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+    const outcomesResult =
+      await supabase
+        .from("workflow_outcomes")
+        .select("*")
+        .eq("business_id", business_id)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+    if (actionsResult.error || outcomesResult.error) {
+      console.error(actionsResult.error || outcomesResult.error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load correlation data",
+      });
+    }
+
+    const actions =
+      actionsResult.data || [];
+
+    const outcomes =
+      outcomesResult.data || [];
+
+    const fastAcknowledgments =
+      actions.filter(
+        (action) =>
+          action.action_type === "predictive_signal_acknowledged" &&
+          (action.response_latency_seconds || 0) > 0 &&
+          (action.response_latency_seconds || 0) <= 300
+      );
+
+    const successfulOutcomes =
+      outcomes.filter(
+        (outcome) => outcome.success === true
+      );
+
+    const correlations = [];
+
+    if (
+      fastAcknowledgments.length > 0 &&
+      successfulOutcomes.length > 0
+    ) {
+      correlations.push({
+        business_id,
+        correlation_type: "fast_operator_response",
+        observation:
+          "Fast predictive signal acknowledgments are appearing alongside successful workflow outcomes.",
+        impact_summary:
+          "Rapid operator response may help preserve momentum on high-intent opportunities.",
+        confidence:
+          Math.min(
+            95,
+            55 + fastAcknowledgments.length * 8
+          ),
+        supporting_events:
+          fastAcknowledgments.length + successfulOutcomes.length,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    const onboardingSuccesses =
+      outcomes.filter(
+        (outcome) =>
+          outcome.success === true &&
+          (outcome.notes || "")
+            .toLowerCase()
+            .includes("onboarding")
+      );
+
+    if (onboardingSuccesses.length > 0) {
+      correlations.push({
+        business_id,
+        correlation_type: "onboarding_reassurance_success",
+        observation:
+          "Successful outcomes are connected to clarification around onboarding or implementation support.",
+        impact_summary:
+          "Direct reassurance around onboarding support appears to improve conversion momentum.",
+        confidence:
+          Math.min(
+            95,
+            60 + onboardingSuccesses.length * 10
+          ),
+        supporting_events:
+          onboardingSuccesses.length,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    if (correlations.length > 0) {
+      await supabase
+        .from("operator_outcome_correlations")
+        .upsert(
+          correlations,
+          {
+            onConflict: "business_id,correlation_type",
+          }
+        );
+    }
+
+    return res.json({
+      ok: true,
+      correlations,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to generate operator correlations",
+    });
+  }
+});
+
+
+// GET OPERATOR ACTION SUMMARY
+app.get("/api/operator-actions-summary", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("operator_actions")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load operator action summary",
+      });
+    }
+
+    const actions = data || [];
+
+    const totalActions =
+      actions.length;
+
+    const predictiveAckActions =
+      actions.filter(
+        (action) =>
+          action.action_type === "predictive_signal_acknowledged"
+      );
+
+    const latencies =
+      predictiveAckActions
+        .map((action) => action.response_latency_seconds || 0)
+        .filter((value) => value > 0);
+
+    const avgResponseSeconds =
+      latencies.length > 0
+        ? Math.round(
+            latencies.reduce((sum, value) => sum + value, 0) /
+              latencies.length
+          )
+        : 0;
+
+    const fastResponses =
+      latencies.filter((value) => value <= 300).length;
+
+    const fastResponseRate =
+      latencies.length > 0
+        ? Math.round((fastResponses / latencies.length) * 100)
+        : 0;
+
+    let operationalInsight =
+      "Operator performance intelligence is collecting response behavior.";
+
+    if (avgResponseSeconds > 0 && avgResponseSeconds <= 300) {
+      operationalInsight =
+        "Operator response speed is strong. Fast acknowledgment behavior may support higher conversion momentum.";
+    } else if (avgResponseSeconds > 900) {
+      operationalInsight =
+        "Operator response latency is elevated. Hermes should continue escalating high-probability opportunities sooner.";
+    }
+
+    return res.json({
+      ok: true,
+      summary: {
+        total_actions: totalActions,
+        predictive_ack_count: predictiveAckActions.length,
+        avg_response_seconds: avgResponseSeconds,
+        fast_response_rate: fastResponseRate,
+        operational_insight: operationalInsight,
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load operator action summary",
+    });
+  }
+});
+
+
+// RECORD OPERATOR ACTION
+app.post("/api/operator-actions", async (req, res) => {
+  try {
+    const {
+      business_id = "liminull",
+      company,
+      operator_name = "operator",
+      action_type,
+      action_target,
+      action_details,
+      response_latency_seconds = 0,
+    } = req.body;
+
+    if (!company || !action_type) {
+      return res.status(400).json({
+        ok: false,
+        error: "company and action_type are required",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("operator_actions")
+      .insert([
+        {
+          business_id,
+          company,
+          operator_name,
+          action_type,
+          action_target,
+          action_details,
+          response_latency_seconds,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to record operator action",
+      });
+    }
+
+    await supabase.from("activities").insert([
+      {
+        business_id,
+        type: "operator_action_recorded",
+        company,
+        message: `Operator action recorded: ${action_type}`,
+        payload: data,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    return res.json({
+      ok: true,
+      action: data,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Operator action logging failed",
+    });
+  }
+});
+
+
+// ACKNOWLEDGE PREDICTIVE SIGNAL
+app.post("/api/predictive-acknowledgments", async (req, res) => {
+  try {
+    const {
+      business_id = "liminull",
+      company,
+      signal_type,
+      insight_signature = "",
+      acknowledged_by = "operator",
+    } = req.body;
+
+    if (!company || !signal_type) {
+      return res.status(400).json({
+        ok: false,
+        error: "company and signal_type are required",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("predictive_acknowledgments")
+      .upsert(
+        {
+          business_id,
+          company,
+          signal_type,
+          insight_signature,
+          acknowledged_by,
+          acknowledged_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "business_id,company,signal_type",
+        }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to acknowledge predictive signal",
+      });
+    }
+
+    await supabase.from("activities").insert([
+      {
+        business_id,
+        type: "predictive_signal_acknowledged",
+        company,
+        message: `Predictive signal acknowledged: ${signal_type}`,
+        payload: data,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    return res.json({
+      ok: true,
+      acknowledgment: data,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Predictive acknowledgment failed",
+    });
+  }
+});
+
+// GET PREDICTIVE ACKNOWLEDGMENTS
+app.get("/api/predictive-acknowledgments", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("predictive_acknowledgments")
+      .select("*")
+      .eq("business_id", businessId);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load predictive acknowledgments",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      acknowledgments: data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load predictive acknowledgments",
+    });
+  }
+});
+
+
+// GET PREDICTIVE INSIGHTS FOR LEAD
+app.get("/api/predictive-insights/:company", async (req, res) => {
+  try {
+    const company = req.params.company;
+
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("predictive_insights")
+      .select("*")
+      .eq("company", company)
+      .eq("business_id", businessId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load predictive insights",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      insight: data || null,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load predictive insights",
+    });
+  }
+});
+
+
 // WEBSITE INQUIRY INTAKE
 app.post("/api/website-inquiry", async (req, res) => {
   try {
@@ -617,6 +1093,8 @@ app.post("/api/inbound/resend", async (req, res) => {
             business_id: businessId || "liminull",
             company,
             ...predictiveInsights,
+            insight_signature:
+              predictiveInsights.insight_signature || "",
             updated_at: new Date().toISOString(),
           },
           {

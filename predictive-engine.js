@@ -143,7 +143,19 @@ export function generatePredictiveInsights({
       "Escalate followup cadence before lead becomes inactive.";
   }
 
+  const insightSignature =
+    JSON.stringify({
+      closeProbability,
+      responseProbability,
+      staleRisk,
+      recoveryProbability,
+      recommendedIntervention,
+    });
+
   return {
+    insight_signature:
+      insightSignature,
+
     close_probability:
       closeProbability,
 

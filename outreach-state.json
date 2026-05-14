@@ -2,7 +2,7 @@
   "Acme Roofing": {
     "status": "sent",
     "approvedAt": "2026-05-12T21:38:16.395Z",
-    "updatedAt": "2026-05-12T22:24:51.122Z",
+    "updatedAt": "2026-05-14T03:56:03.290Z",
     "followupFile": "followup-acme-roofing.md",
     "followupGeneratedAt": "2026-05-12T21:42:10.886Z",
     "toEmail": "valeraven47@gmail.com",
@@ -14,7 +14,8 @@
     "replyStatus": "meeting_request",
     "repliedAt": "2026-05-12T22:24:49.845Z",
     "latestReply": "Hey, this looks interesting. I'd be open to a quick call next week.",
-    "pipelineStage": "meeting_requested"
+    "pipelineStage": "meeting_requested",
+    "latestReplyAt": "2026-05-14T03:56:03.290Z"
   },
   "Bright Dental": {
     "replyStatus": "not_interested",
