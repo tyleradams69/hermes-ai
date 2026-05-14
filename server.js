@@ -36,11 +36,88 @@ import { loadRelevantStrategies } from "./strategy-memory-loader.js";
 import { applyStrategyAdjustments } from "./strategy-score-adjuster.js";
 import { buildWebsiteLead } from "./website-intake.js";
 import { generatePredictiveInsights } from "./predictive-engine.js";
+import { applyOperationalOptimizations } from "./operational-optimizer.js";
+import { generateWeightAdjustments } from "./runtime-weight-optimizer.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+
+// GET RUNTIME OPTIMIZATION WEIGHTS
+app.get("/api/runtime-weights", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("runtime_optimization_weights")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("weight_key", { ascending: true });
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load runtime weights",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      weights: data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load runtime weights",
+    });
+  }
+});
+
+
+
+// GET BRAIN TIMELINE EVENTS
+app.get("/api/brain-timeline", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("brain_timeline_events")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load brain timeline",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      events: data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load brain timeline",
+    });
+  }
+});
+
 
 const PORT = 3002;
 
@@ -194,6 +271,66 @@ app.post("/api/operator-correlations/generate", async (req, res) => {
             onConflict: "business_id,correlation_type",
           }
         );
+
+      const adjustments =
+        generateWeightAdjustments({
+          correlations,
+        });
+
+      for (const adjustment of adjustments) {
+
+        const existing =
+          await supabase
+            .from("runtime_optimization_weights")
+            .select("*")
+            .eq("weight_key", adjustment.weight_key)
+            .maybeSingle();
+
+        const current =
+          existing.data?.weight_value || 1.0;
+
+        const updated =
+          Math.min(
+            3,
+            Math.max(
+              0.25,
+              Number(current) + adjustment.delta
+            )
+          );
+
+        await supabase
+          .from("runtime_optimization_weights")
+          .update({
+            weight_value: updated,
+            reasoning: adjustment.reasoning,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("weight_key", adjustment.weight_key);
+
+        await supabase
+          .from("brain_timeline_events")
+          .insert([
+            {
+              business_id,
+              event_type: "runtime_weight_adjusted",
+
+              event_title:
+                adjustment.weight_key,
+
+              event_summary:
+                adjustment.reasoning,
+
+              before_value:
+                String(current),
+
+              after_value:
+                String(updated),
+
+              source_table:
+                "runtime_optimization_weights",
+            },
+          ]);
+      }
     }
 
     return res.json({
@@ -1084,6 +1221,27 @@ app.post("/api/inbound/resend", async (req, res) => {
           lead: updatedLead,
           memory,
           strategies: strategyResult.data || [],
+        });
+
+      const correlationResult =
+        await supabase
+          .from("operator_outcome_correlations")
+          .select("*")
+          .eq("business_id", businessId || "liminull");
+
+      const weightResult =
+        await supabase
+          .from("runtime_optimization_weights")
+          .select("*")
+          .eq("business_id", businessId || "liminull");
+
+      predictiveInsights =
+        applyOperationalOptimizations({
+          predictiveInsights,
+          correlations:
+            correlationResult.data || [],
+          weights:
+            weightResult.data || [],
         });
 
       await supabase
