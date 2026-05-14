@@ -43,3 +43,21 @@ export async function sendApprovedOutreach({
     result
   };
 }
+
+
+export async function sendFollowupEmail({
+  to,
+  subject,
+  body,
+}) {
+
+  return resend.emails.send({
+    from:
+ "Liminull AI <hello@liminullai.com>",
+    to,
+
+    subject,
+
+    text: body,
+  });
+}

@@ -6,3 +6,4 @@ outreach-state.json
 git add .
 git commit -m "Hermes inbound reply runtime"
 git push
+.env.local

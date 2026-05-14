@@ -1,9 +1,10 @@
 import { supabase } from "./supabase-client.js";
 
-async function getAllLeads() {
+async function getAllLeads(businessId = "liminull") {
   const { data, error } = await supabase
     .from("leads")
     .select("*")
+    .eq("business_id", businessId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -27,18 +28,26 @@ async function getAllLeads() {
       followupCount: lead.followup_count,
       nextFollowupAt: lead.next_followup_at,
       createdAt: lead.created_at,
-      updatedAt: lead.updated_at
+      updatedAt: lead.updated_at,
+
+      leadScore: lead.lead_score,
+      leadTemperature: lead.lead_temperature,
+      leadPriority: lead.lead_priority,
+      aiReasoning: lead.ai_reasoning,
+      suggestedNextAction: lead.suggested_next_action,
+      suggestedNextAction: lead.suggested_next_action
     };
   }
 
   return state;
 }
 
-async function getLeadByCompany(company) {
+async function getLeadByCompany(company, businessId = "liminull") {
   const { data, error } = await supabase
     .from("leads")
     .select("*")
     .eq("company", company)
+    .eq("business_id", businessId)
     .maybeSingle();
 
   if (error) {
@@ -55,6 +64,7 @@ async function upsertLead(lead) {
     .upsert(
       {
         company: lead.company,
+        business_id: lead.businessId || lead.business_id || "liminull",
         website: lead.website || null,
         phone: lead.phone || null,
         email: lead.email || null,
