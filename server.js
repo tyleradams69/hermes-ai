@@ -2437,6 +2437,107 @@ app.get("/api/worker-recovery", async (req, res) => {
 });
 
 
+
+// GET OPERATIONS OVERVIEW
+app.get("/api/operations-overview", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) {
+      return;
+    }
+
+    const businessId =
+      requireBusinessId(req, res);
+
+    if (!businessId) {
+      return;
+    }
+
+    const [
+      queueResult,
+      workerResult,
+      failureResult,
+      modeResult,
+      auditResult,
+      deadLetterResult,
+    ] = await Promise.all([
+
+      supabase
+        .from("job_queue")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("worker_heartbeats")
+        .select("*"),
+
+      supabase
+        .from("system_failures")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("system_modes")
+        .select("*")
+        .eq("business_id", "global")
+        .maybeSingle(),
+
+      supabase
+        .from("audit_logs")
+        .select("*")
+        .eq("business_id", businessId)
+        .limit(25),
+
+      supabase
+        .from("dead_letter_jobs")
+        .select("*")
+        .eq("business_id", businessId),
+    ]);
+
+    return res.json({
+      ok: true,
+
+      overview: {
+        queue:
+          queueResult.data || [],
+
+        workers:
+          workerResult.data || [],
+
+        failures:
+          failureResult.data || [],
+
+        mode:
+          modeResult.data || null,
+
+        audits:
+          auditResult.data || [],
+
+        deadLetters:
+          deadLetterResult.data || [],
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load operations overview",
+    });
+  }
+});
+
+
 const PORT = 3002;
 
 // GET OPERATOR OUTCOME CORRELATIONS
@@ -4054,6 +4155,19 @@ app.post("/api/followup-approvals/:id/status", automationLimiter, async (req, re
 
     const approval =
       existingApproval.data;
+
+    // PREVENT NO-OP STATUS MUTATIONS
+
+    if (
+      approval.status === status
+    ) {
+
+      return res.json({
+        ok: true,
+        approval,
+        skipped: true,
+      });
+    }
 
     if (
       status === "approved"
