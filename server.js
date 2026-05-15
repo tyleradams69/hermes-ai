@@ -53,8 +53,24 @@ import { applyChainPriority } from "./chain-priority-engine.js";
 import { generateGlobalPatterns } from "./global-intelligence-engine.js";
 import { applyGlobalPatternReasoning } from "./global-pattern-reasoning.js";
 import { generateGlobalWeightAdjustments } from "./global-weight-adaptation.js";
+import { requireBusinessId } from "./business-guard.js";
+import { requireApiAuth } from "./api-auth-guard.js";
+import { requireRole } from "./role-guard.js";
+import { evaluateAutomationSafety } from "./automation-safety.js";
+import { createAuditLog } from "./audit-engine.js";
+import { createRollbackSnapshot } from "./rollback-engine.js";
+import { recordSystemFailure } from "./monitoring-engine.js";
+import { generateOperationalHealth } from "./operational-health-engine.js";
+import { apiLimiter, automationLimiter } from "./rate-limiters.js";
+import { enqueueJob } from "./queue-engine.js";
+import { detectWorkerHealth } from "./worker-health-engine.js";
+import { generateWorkerRecovery } from "./worker-recovery-engine.js";
+import { evaluateSystemMode } from "./degraded-mode-engine.js";
+import { enforceSystemMode } from "./system-mode-guard.js";
 
 const app = express();
+
+app.use(apiLimiter);
 
 app.use(cors());
 app.use(express.json());
@@ -64,7 +80,9 @@ app.use(express.json());
 app.get("/api/runtime-weights", async (req, res) => {
   try {
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("runtime_optimization_weights")
@@ -99,8 +117,18 @@ app.get("/api/runtime-weights", async (req, res) => {
 // GET BRAIN TIMELINE EVENTS
 app.get("/api/brain-timeline", async (req, res) => {
   try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({ req, res, allowedRoles: ["admin"] })) {
+      return;
+    }
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("brain_timeline_events")
@@ -138,8 +166,18 @@ app.get("/api/brain-timeline", async (req, res) => {
 // GET BRAIN HEALTH
 app.get("/api/brain-health", async (req, res) => {
   try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({ req, res, allowedRoles: ["admin"] })) {
+      return;
+    }
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const [
       strategyResult,
@@ -327,8 +365,18 @@ app.get("/api/brain-health", async (req, res) => {
 // GET BRAIN ACTIVITY HEAT
 app.get("/api/brain-activity-heat", async (req, res) => {
   try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({ req, res, allowedRoles: ["admin"] })) {
+      return;
+    }
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("brain_timeline_events")
@@ -392,7 +440,9 @@ app.get("/api/brain-activity-heat", async (req, res) => {
 app.get("/api/prediction-drift", async (req, res) => {
   try {
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("predictive_insights")
@@ -449,7 +499,9 @@ app.get("/api/prediction-drift", async (req, res) => {
 app.get("/api/neural-memory-density", async (req, res) => {
   try {
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const [
       strategyResult,
@@ -534,8 +586,18 @@ app.get("/api/neural-memory-density", async (req, res) => {
 // GET BRAIN CONSCIOUSNESS INDEX
 app.get("/api/brain-consciousness", async (req, res) => {
   try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({ req, res, allowedRoles: ["admin"] })) {
+      return;
+    }
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const [healthRes, densityRes, heatRes] =
       await Promise.all([
@@ -622,7 +684,7 @@ app.get("/api/brain-consciousness", async (req, res) => {
 app.post("/api/outcome-feedback", async (req, res) => {
   try {
     const {
-      business_id = "liminull",
+      business_id,
       company,
       outcome_type,
       success = false,
@@ -969,7 +1031,9 @@ app.post("/api/outcome-feedback", async (req, res) => {
 app.get("/api/memory-associations", async (req, res) => {
   try {
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("memory_associations")
@@ -1008,7 +1072,9 @@ app.get("/api/memory-associations", async (req, res) => {
 app.post("/api/temporal-patterns/generate", async (req, res) => {
   try {
     const businessId =
-      req.body.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const [outcomeResult, actionResult] =
       await Promise.all([
@@ -1101,7 +1167,9 @@ app.post("/api/temporal-patterns/generate", async (req, res) => {
 app.post("/api/temporal-windows/generate", async (req, res) => {
   try {
     const businessId =
-      req.body.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const [outcomeResult, actionResult] =
       await Promise.all([
@@ -1165,7 +1233,9 @@ app.post("/api/temporal-windows/generate", async (req, res) => {
 app.post("/api/intervention-simulations/generate", async (req, res) => {
   try {
     const businessId =
-      req.body.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const [
       associationResult,
@@ -1271,7 +1341,9 @@ app.post("/api/intervention-simulations/generate", async (req, res) => {
 app.get("/api/intervention-simulations", async (req, res) => {
   try {
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("intervention_simulations")
@@ -1312,7 +1384,9 @@ app.get("/api/intervention-simulations", async (req, res) => {
 app.post("/api/intervention-chains/generate", async (req, res) => {
   try {
     const businessId =
-      req.body.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("intervention_simulations")
@@ -1381,7 +1455,9 @@ app.post("/api/intervention-chains/generate", async (req, res) => {
 app.get("/api/intervention-chains", async (req, res) => {
   try {
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("intervention_chains")
@@ -1472,7 +1548,7 @@ app.post("/api/global-patterns/generate", async (req, res) => {
           .insert([
             {
               business_id:
-                "liminull",
+                "global",
 
               event_type:
                 "global_pattern_detected",
@@ -1505,7 +1581,7 @@ app.post("/api/global-patterns/generate", async (req, res) => {
           .insert([
             {
               business_id:
-                "liminull",
+                "global",
 
               event_type:
                 "global_pattern_confidence_shift",
@@ -1588,6 +1664,10 @@ app.get("/api/global-patterns", async (req, res) => {
 // APPLY GLOBAL WEIGHT ADAPTATION
 app.post("/api/global-weight-adaptation/apply", async (req, res) => {
   try {
+    const businessId =
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("global_strategy_patterns")
@@ -1617,7 +1697,7 @@ app.post("/api/global-weight-adaptation/apply", async (req, res) => {
         await supabase
           .from("runtime_optimization_weights")
           .select("*")
-          .eq("business_id", "liminull")
+          .eq("business_id", businessId)
           .eq("weight_key", adjustment.weight_key)
           .maybeSingle();
 
@@ -1696,7 +1776,7 @@ app.post("/api/global-weight-adaptation/apply", async (req, res) => {
           .insert([
             {
               business_id:
-                "liminull",
+                businessId,
 
               weight_key:
                 adjustment.weight_key,
@@ -1722,7 +1802,7 @@ app.post("/api/global-weight-adaptation/apply", async (req, res) => {
           .insert([
             {
               business_id:
-                "liminull",
+                "global",
 
               event_type:
                 "global_weight_adaptation",
@@ -1775,13 +1855,597 @@ app.post("/api/global-weight-adaptation/apply", async (req, res) => {
 });
 
 
+
+// GET AUDIT LOGS
+app.get("/api/audit-logs", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) {
+      return;
+    }
+
+    const businessId =
+      requireBusinessId(req, res);
+
+    if (!businessId) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("audit_logs")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(250);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Failed to load audit logs",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      logs:
+        data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load audit logs",
+    });
+  }
+});
+
+
+
+// GET ROLLBACK SNAPSHOTS
+app.get("/api/rollback-snapshots", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) {
+      return;
+    }
+
+    const businessId =
+      requireBusinessId(req, res);
+
+    if (!businessId) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("rollback_snapshots")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(250);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Failed to load rollback snapshots",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      snapshots:
+        data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load rollback snapshots",
+    });
+  }
+});
+
+
+
+// GENERATE OPERATIONAL HEALTH METRICS
+app.post("/api/operational-health/generate", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) {
+      return;
+    }
+
+    const businessId =
+      requireBusinessId(req, res);
+
+    if (!businessId) {
+      return;
+    }
+
+    const [
+      failureResult,
+      approvalResult,
+      predictionResult,
+    ] = await Promise.all([
+
+      supabase
+        .from("system_failures")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("followup_approvals")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("predictive_insights")
+        .select("*")
+        .eq("business_id", businessId),
+    ]);
+
+    const metrics =
+      generateOperationalHealth({
+        failures:
+          failureResult.data || [],
+
+        approvals:
+          approvalResult.data || [],
+
+        predictions:
+          predictionResult.data || [],
+      });
+
+    for (const metric of metrics) {
+
+      await supabase
+        .from("operational_health_metrics")
+        .insert([
+          {
+            business_id:
+              businessId,
+
+            ...metric,
+          },
+        ]);
+
+      await supabase
+        .from("brain_timeline_events")
+        .insert([
+          {
+            business_id:
+              businessId,
+
+            event_type:
+              "operational_health_alert",
+
+            event_title:
+              metric.metric_type,
+
+            event_summary:
+              metric.observation,
+
+            before_value:
+              "",
+
+            after_value:
+              String(metric.metric_value),
+
+            source_table:
+              "operational_health_metrics",
+          },
+        ]);
+    }
+
+    return res.json({
+      ok: true,
+      metrics,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to generate operational health metrics",
+    });
+  }
+});
+
+
+
+// GET JOB QUEUE
+app.get("/api/job-queue", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) {
+      return;
+    }
+
+    const businessId =
+      requireBusinessId(req, res);
+
+    if (!businessId) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("job_queue")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(250);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Failed to load job queue",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      jobs:
+        data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load job queue",
+    });
+  }
+});
+
+
+
+// GET DEAD LETTER JOBS
+app.get("/api/dead-letter-jobs", async (req, res) => {
+  try {
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({ req, res, allowedRoles: ["admin"] })) return;
+
+    const businessId = requireBusinessId(req, res);
+    if (!businessId) return;
+
+    const { data, error } = await supabase
+      .from("dead_letter_jobs")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("failed_at", { ascending: false })
+      .limit(250);
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      jobs: data || [],
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load dead-letter jobs",
+    });
+  }
+});
+
+
+
+// GET WORKER HEARTBEATS
+app.get("/api/worker-heartbeats", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("worker_heartbeats")
+      .select("*")
+      .order("last_heartbeat", {
+        ascending: false,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    return res.json({
+      ok: true,
+      workers:
+        data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load worker heartbeats",
+    });
+  }
+});
+
+
+
+// GET WORKER HEALTH
+app.get("/api/worker-health", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("worker_heartbeats")
+      .select("*");
+
+    if (error) {
+      throw error;
+    }
+
+    const alerts =
+      detectWorkerHealth({
+        workers:
+          data || [],
+      });
+
+    return res.json({
+      ok: true,
+      alerts,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to evaluate worker health",
+    });
+  }
+});
+
+
+
+// GET WORKER RECOVERY RECOMMENDATIONS
+app.get("/api/worker-recovery", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) {
+      return;
+    }
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("worker_heartbeats")
+      .select("*");
+
+    if (error) {
+      throw error;
+    }
+
+    const alerts =
+      detectWorkerHealth({
+        workers:
+          data || [],
+      });
+
+    const recoveries =
+      generateWorkerRecovery({
+        alerts,
+      });
+
+    const mode =
+      evaluateSystemMode({
+        alerts,
+        recoveries,
+      });
+
+    const existingMode =
+      await supabase
+        .from("system_modes")
+        .select("*")
+        .eq("business_id", "global")
+        .maybeSingle();
+
+    if (
+      existingMode.data?.mode !==
+      mode.mode
+    ) {
+
+      await supabase
+        .from("system_modes")
+        .upsert(
+          {
+            business_id:
+              "global",
+
+            mode:
+              mode.mode,
+
+            reason:
+              mode.reason,
+
+            activated_by:
+              "system",
+
+            updated_at:
+              new Date().toISOString(),
+          },
+          {
+            onConflict:
+              "business_id",
+          }
+        );
+
+      await supabase
+        .from("brain_timeline_events")
+        .insert([
+          {
+            business_id:
+              "global",
+
+            event_type:
+              "system_mode_changed",
+
+            event_title:
+              mode.mode,
+
+            event_summary:
+              mode.reason,
+
+            before_value:
+              existingMode.data?.mode || "",
+
+            after_value:
+              mode.mode,
+
+            source_table:
+              "system_modes",
+          },
+        ]);
+    }
+
+    for (const recovery of recoveries) {
+
+      await supabase
+        .from("brain_timeline_events")
+        .insert([
+          {
+            business_id:
+              "global",
+
+            event_type:
+              "worker_recovery_recommended",
+
+            event_title:
+              recovery.recovery_type,
+
+            event_summary:
+              recovery.recommendation,
+
+            before_value:
+              "",
+
+            after_value:
+              recovery.target_worker,
+
+            source_table:
+              "worker_heartbeats",
+          },
+        ]);
+    }
+
+    return res.json({
+      ok: true,
+      recoveries,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to generate worker recovery recommendations",
+    });
+  }
+});
+
+
 const PORT = 3002;
 
 // GET OPERATOR OUTCOME CORRELATIONS
 app.get("/api/operator-correlations", async (req, res) => {
   try {
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("operator_outcome_correlations")
@@ -1819,7 +2483,7 @@ app.get("/api/operator-correlations", async (req, res) => {
 app.post("/api/operator-correlations/generate", async (req, res) => {
   try {
     const {
-      business_id = "liminull",
+      business_id,
     } = req.body;
 
     const actionsResult =
@@ -2082,7 +2746,9 @@ app.post("/api/operator-correlations/generate", async (req, res) => {
 app.get("/api/operator-actions-summary", async (req, res) => {
   try {
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("operator_actions")
@@ -2169,7 +2835,7 @@ app.get("/api/operator-actions-summary", async (req, res) => {
 app.post("/api/operator-actions", async (req, res) => {
   try {
     const {
-      business_id = "liminull",
+      business_id,
       company,
       operator_name = "operator",
       action_type,
@@ -2241,7 +2907,7 @@ app.post("/api/operator-actions", async (req, res) => {
 app.post("/api/predictive-acknowledgments", async (req, res) => {
   try {
     const {
-      business_id = "liminull",
+      business_id,
       company,
       signal_type,
       insight_signature = "",
@@ -2312,7 +2978,9 @@ app.post("/api/predictive-acknowledgments", async (req, res) => {
 app.get("/api/predictive-acknowledgments", async (req, res) => {
   try {
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("predictive_acknowledgments")
@@ -2350,7 +3018,9 @@ app.get("/api/predictive-insights/:company", async (req, res) => {
     const company = req.params.company;
 
     const businessId =
-      req.query.business_id || "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("predictive_insights")
@@ -2395,7 +3065,7 @@ app.post("/api/website-inquiry", async (req, res) => {
       phone,
       website,
       message,
-      business_id = "liminull",
+      business_id,
     } = req.body;
 
     if (!company || !email) {
@@ -2471,7 +3141,7 @@ app.get("/api/strategy-memory", async (req, res) => {
     const { data, error } = await supabase
       .from("strategy_memory")
       .select("*")
-      .eq("business_id", req.query.business_id || "liminull")
+      .eq("business_id", requireBusinessId(req, res))
       .order("adaptive_confidence", {
         ascending: false,
       })
@@ -2617,7 +3287,7 @@ app.post("/api/workflow-outcomes", async (req, res) => {
         company,
         message: `Strategy memory updated from outcome: ${outcome}`,
         payload: outcomeStrategies,
-        business_id: "liminull",
+        business_id: businessId,
         created_at: new Date().toISOString(),
       },
     ]);
@@ -2647,7 +3317,7 @@ app.get("/api/lead/:company/memory", async (req, res) => {
       .from("lead_memory")
       .select("*")
       .eq("company", company)
-      .eq("business_id", req.query.business_id || "liminull")
+      .eq("business_id", requireBusinessId(req, res))
       .maybeSingle();
 
     if (error) {
@@ -2675,7 +3345,7 @@ app.get("/api/lead/:company/memory", async (req, res) => {
 
 
 // RESEND INBOUND REPLY WEBHOOK
-app.post("/api/inbound/resend", async (req, res) => {
+app.post("/api/inbound/resend", automationLimiter, async (req, res) => {
   try {
     const payload = req.body;
 
@@ -2703,8 +3373,9 @@ app.post("/api/inbound/resend", async (req, res) => {
       "";
 
     const businessId =
-      payload?.business_id ||
-      "liminull";
+      requireBusinessId(req, res);
+
+    if (!businessId) return;
 
     const { data, error } = await supabase
       .from("inbound_replies")
@@ -2862,6 +3533,14 @@ app.post("/api/inbound/resend", async (req, res) => {
             relevantStrategies,
         });
 
+      const systemMode =
+        await enforceSystemMode({
+          supabase,
+          businessId,
+          actionType:
+            "auto_followup",
+        });
+
       const approvalResult =
         await supabase
           .from("followup_approvals")
@@ -2873,7 +3552,40 @@ app.post("/api/inbound/resend", async (req, res) => {
               reasoning:
                 followup.reasoning ||
                 classification.reasoning,
-              status: "pending",
+
+              status:
+                (
+                  evaluateAutomationSafety({
+                  confidence:
+                    Number(classification.confidence || 0),
+
+                  role:
+                    req.headers["x-hermes-role"] || "viewer",
+
+                  actionType:
+                    "auto_followup",
+                }).allowed &&
+                  systemMode.allowed
+                )
+                  ? "pending"
+                  : "blocked",
+
+              safety_reason:
+                !systemMode.allowed
+                  ? systemMode.reason
+                  : evaluateAutomationSafety({
+                  confidence:
+                    Number(classification.confidence || 0),
+
+                  role:
+                    req.headers["x-hermes-role"] || "viewer",
+
+                  actionType:
+                    "auto_followup",
+                }).reason,
+
+              business_id:
+                businessId,
             },
           ])
           .select()
@@ -2939,7 +3651,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         await supabase
           .from("strategy_memory")
           .select("*")
-          .eq("business_id", businessId || "liminull")
+          .eq("business_id", businessId)
           .order("adaptive_confidence", {
             ascending: false,
           })
@@ -2960,7 +3672,7 @@ app.post("/api/inbound/resend", async (req, res) => {
             await supabase
               .from("memory_associations")
               .select("*")
-              .eq("business_id", businessId || "liminull")
+              .eq("business_id", businessId)
               .eq("source_memory", association.source_memory)
               .eq("target_memory", association.target_memory)
               .maybeSingle();
@@ -2979,7 +3691,7 @@ app.post("/api/inbound/resend", async (req, res) => {
             .upsert(
               {
                 business_id:
-                  businessId || "liminull",
+                  businessId,
 
                 ...association,
 
@@ -3008,13 +3720,13 @@ app.post("/api/inbound/resend", async (req, res) => {
         await supabase
           .from("operator_outcome_correlations")
           .select("*")
-          .eq("business_id", businessId || "liminull");
+          .eq("business_id", businessId);
 
       const weightResult =
         await supabase
           .from("runtime_optimization_weights")
           .select("*")
-          .eq("business_id", businessId || "liminull");
+          .eq("business_id", businessId);
 
       predictiveInsights =
         applyOperationalOptimizations({
@@ -3029,7 +3741,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         await supabase
           .from("prediction_outcomes")
           .select("*")
-          .eq("business_id", businessId || "liminull")
+          .eq("business_id", businessId)
           .eq("company", company);
 
       predictiveInsights =
@@ -3043,7 +3755,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         await supabase
           .from("memory_associations")
           .select("*")
-          .eq("business_id", businessId || "liminull")
+          .eq("business_id", businessId)
           .order("updated_at", { ascending: false });
 
       predictiveInsights =
@@ -3057,7 +3769,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         await supabase
           .from("temporal_behavior_patterns")
           .select("*")
-          .eq("business_id", businessId || "liminull");
+          .eq("business_id", businessId);
 
       predictiveInsights =
         applyTemporalReasoning({
@@ -3070,7 +3782,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         await supabase
           .from("temporal_response_windows")
           .select("*")
-          .eq("business_id", businessId || "liminull");
+          .eq("business_id", businessId);
 
       predictiveInsights =
         applyTemporalWindowReasoning({
@@ -3089,7 +3801,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         await supabase
           .from("intervention_simulations")
           .select("*")
-          .eq("business_id", businessId || "liminull");
+          .eq("business_id", businessId);
 
       predictiveInsights =
         applySimulationPriority({
@@ -3102,7 +3814,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         await supabase
           .from("intervention_chains")
           .select("*")
-          .eq("business_id", businessId || "liminull");
+          .eq("business_id", businessId);
 
       predictiveInsights =
         applyChainPriority({
@@ -3134,7 +3846,7 @@ app.post("/api/inbound/resend", async (req, res) => {
           .insert([
             {
               business_id:
-                businessId || "liminull",
+                businessId,
 
               event_type:
                 "prediction_calibrated",
@@ -3161,7 +3873,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         await supabase
           .from("predictive_insights")
           .select("*")
-          .eq("business_id", businessId || "liminull")
+          .eq("business_id", businessId)
           .eq("company", company)
           .maybeSingle();
 
@@ -3197,7 +3909,7 @@ app.post("/api/inbound/resend", async (req, res) => {
               .insert([
                 {
                   business_id:
-                    businessId || "liminull",
+                    businessId,
 
                   event_type:
                     type,
@@ -3244,7 +3956,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         .from("predictive_insights")
         .upsert(
           {
-            business_id: businessId || "liminull",
+            business_id: businessId,
             company,
             ...predictiveInsights,
             insight_signature:
@@ -3270,7 +3982,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         company: company || fromEmail || "unknown",
         message: `Reply classified as ${classification.intent}`,
         payload: classification,
-        business_id: "liminull",
+        business_id: businessId,
         created_at: new Date().toISOString(),
       },
       {
@@ -3278,7 +3990,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         company: company || fromEmail || "unknown",
         message: `Lead updated from inbound reply: ${classification.suggested_stage}`,
         payload: updatedLead,
-        business_id: "liminull",
+        business_id: businessId,
         created_at: new Date().toISOString(),
       },
     ];
@@ -3289,7 +4001,7 @@ app.post("/api/inbound/resend", async (req, res) => {
         company,
         message: `Hermes auto-generated a followup proposal for ${company}`,
         payload: autoApproval,
-        business_id: "liminull",
+        business_id: businessId,
         created_at: new Date().toISOString(),
       });
     }
@@ -3320,7 +4032,7 @@ app.post("/api/inbound/resend", async (req, res) => {
 
 
 // UPDATE FOLLOWUP APPROVAL STATUS
-app.post("/api/followup-approvals/:id/status", async (req, res) => {
+app.post("/api/followup-approvals/:id/status", automationLimiter, async (req, res) => {
   try {
     const id = req.params.id;
 
@@ -3361,17 +4073,54 @@ app.post("/api/followup-approvals/:id/status", async (req, res) => {
         lead?.email
       ) {
 
-        await sendFollowupEmail({
-          to: lead.email,
+        await enqueueJob({
+          supabase,
 
-          subject:
-            approval.subject,
+          businessId:
+            approval.business_id,
 
-          body:
-            approval.body,
+          jobType:
+            "send_followup_email",
+
+          payload: {
+            to:
+              lead.email,
+
+            subject:
+              approval.subject,
+
+            body:
+              approval.body,
+
+            company:
+              approval.company,
+
+            approval_id:
+              approval.id,
+          },
         });
       }
     }
+
+
+    await createRollbackSnapshot({
+      supabase,
+
+      businessId:
+        approval.business_id,
+
+      snapshotType:
+        "followup_approval",
+
+      targetId:
+        approval.id,
+
+      snapshotData:
+        approval,
+
+      createdByRole:
+        req.headers["x-hermes-role"] || "unknown",
+    });
 
     const { data, error } = await supabase
       .from("followup_approvals")
@@ -3381,6 +4130,37 @@ app.post("/api/followup-approvals/:id/status", async (req, res) => {
       .eq("id", id)
       .select()
       .single();
+
+    await createAuditLog({
+      supabase,
+
+      businessId:
+        approval.business_id,
+
+      actorRole:
+        req.headers["x-hermes-role"] || "unknown",
+
+      actionType:
+        `followup_${status}`,
+
+      targetType:
+        "followup_approval",
+
+      targetId:
+        approval.id,
+
+      beforeState: {
+        status:
+          approval.status,
+      },
+
+      afterState: {
+        status,
+      },
+
+      reasoning:
+        `Followup approval ${status} by ${req.headers["x-hermes-role"] || "unknown"}.`,
+    });
 
     if (error) {
       console.error(error);
@@ -3424,7 +4204,7 @@ app.get("/api/followup-approvals", async (req, res) => {
       .from("followup_approvals")
       .select("*")
       .eq("status", "pending")
-      .eq("business_id", req.query.business_id || "liminull")
+      .eq("business_id", requireBusinessId(req, res))
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -3479,7 +4259,29 @@ app.post("/api/lead/:company/generate-followup", async (req, res) => {
           subject: followup.subject,
           body: followup.body,
           reasoning: followup.reasoning,
-          status: "pending",
+
+          status:
+            evaluateAutomationSafety({
+              confidence: 85,
+              role:
+                req.headers["x-hermes-role"] || "viewer",
+              actionType:
+                "auto_followup",
+            }).allowed
+              ? "pending"
+              : "blocked",
+
+          safety_reason:
+            evaluateAutomationSafety({
+              confidence: 85,
+              role:
+                req.headers["x-hermes-role"] || "viewer",
+              actionType:
+                "auto_followup",
+            }).reason,
+
+          business_id:
+            businessId,
         },
       ])
       .select()
@@ -3500,7 +4302,7 @@ app.post("/api/lead/:company/generate-followup", async (req, res) => {
         company,
         message: `AI followup queued for approval: ${company}`,
         payload: approval,
-        business_id: "liminull",
+        business_id: businessId,
         created_at: new Date().toISOString(),
       },
     ]);
@@ -3533,7 +4335,7 @@ app.get("/", (req, res) => {
 app.get("/api/state", async (req, res) => {
 
   const businessId =
-    req.query.business_id || "liminull";
+    requireBusinessId(req, res);
 
   const state =
     await getAllLeads(businessId);
@@ -3596,7 +4398,7 @@ app.post("/api/lead/:company/stage", async (req, res) => {
           company,
           pipeline_stage,
         },
-        business_id: "liminull",
+        business_id: businessId,
         created_at: new Date().toISOString(),
       },
     ]);
@@ -3655,7 +4457,7 @@ app.post("/api/leads/import", async (req, res) => {
 
       followup_count: 0,
 
-      business_id: "liminull",
+      business_id: businessId,
         created_at: new Date().toISOString(),
 
       updated_at: new Date().toISOString()
