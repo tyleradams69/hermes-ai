@@ -38,6 +38,21 @@ import { buildWebsiteLead } from "./website-intake.js";
 import { generatePredictiveInsights } from "./predictive-engine.js";
 import { applyOperationalOptimizations } from "./operational-optimizer.js";
 import { generateWeightAdjustments } from "./runtime-weight-optimizer.js";
+import { calibratePredictiveInsights } from "./prediction-calibration.js";
+import { extractMemoryAssociations } from "./memory-association-engine.js";
+import { applyAssociationReasoning } from "./association-reasoning.js";
+import { generateTemporalPatterns } from "./temporal-learning-engine.js";
+import { applyTemporalReasoning } from "./temporal-reasoning.js";
+import { generateTemporalWindows } from "./temporal-window-engine.js";
+import { applyTemporalWindowReasoning } from "./temporal-window-reasoning.js";
+import { applyUrgencyDecay } from "./urgency-decay-engine.js";
+import { generateInterventionSimulations } from "./intervention-simulation-engine.js";
+import { applySimulationPriority } from "./simulation-priority-engine.js";
+import { generateInterventionChains } from "./intervention-chain-engine.js";
+import { applyChainPriority } from "./chain-priority-engine.js";
+import { generateGlobalPatterns } from "./global-intelligence-engine.js";
+import { applyGlobalPatternReasoning } from "./global-pattern-reasoning.js";
+import { generateGlobalWeightAdjustments } from "./global-weight-adaptation.js";
 
 const app = express();
 
@@ -114,6 +129,1647 @@ app.get("/api/brain-timeline", async (req, res) => {
     return res.status(500).json({
       ok: false,
       error: "Failed to load brain timeline",
+    });
+  }
+});
+
+
+
+// GET BRAIN HEALTH
+app.get("/api/brain-health", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const [
+      strategyResult,
+      correlationResult,
+      weightResult,
+      timelineResult,
+      actionResult,
+    ] = await Promise.all([
+      supabase
+        .from("strategy_memory")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("operator_outcome_correlations")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("runtime_optimization_weights")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("brain_timeline_events")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("operator_actions")
+        .select("*")
+        .eq("business_id", businessId),
+    ]);
+
+    const strategies =
+      strategyResult.data || [];
+
+    const correlations =
+      correlationResult.data || [];
+
+    const weights =
+      weightResult.data || [];
+
+    const timeline =
+      timelineResult.data || [];
+
+    const actions =
+      actionResult.data || [];
+
+    const avgStrategyConfidence =
+      strategies.length > 0
+        ? Math.round(
+            strategies.reduce(
+              (sum, item) =>
+                sum + (item.adaptive_confidence || item.confidence || 50),
+              0
+            ) / strategies.length
+          )
+        : 0;
+
+    const avgCorrelationConfidence =
+      correlations.length > 0
+        ? Math.round(
+            correlations.reduce(
+              (sum, item) =>
+                sum + (item.confidence || 50),
+              0
+            ) / correlations.length
+          )
+        : 0;
+
+    const recentMutations =
+      timeline.filter(
+        (item) =>
+          item.event_type === "runtime_weight_adjusted"
+      );
+
+    const uniqueMutationKeys =
+      new Set(
+        recentMutations.map(
+          (item) =>
+            `${item.event_title}-${item.after_value}`
+        )
+      );
+
+    const optimizationMomentum =
+      uniqueMutationKeys.size;
+
+    const avgWeight =
+      weights.length > 0
+        ? (
+            weights.reduce(
+              (sum, item) =>
+                sum + Number(item.weight_value || 1),
+              0
+            ) / weights.length
+          ).toFixed(2)
+        : "1.00";
+
+    const responseLatencies =
+      actions
+        .map((item) =>
+          item.response_latency_seconds || 0
+        )
+        .filter((v) => v > 0);
+
+    const avgResponseLatency =
+      responseLatencies.length > 0
+        ? Math.round(
+            responseLatencies.reduce((a, b) => a + b, 0) /
+              responseLatencies.length
+          )
+        : 0;
+
+    const brainHealthScore =
+      Math.min(
+        100,
+        Math.round(
+          (avgStrategyConfidence * 0.25) +
+          (avgCorrelationConfidence * 0.30) +
+          (Math.min(optimizationMomentum, 10) * 4) +
+          (Number(avgWeight) * 10) +
+          (avgResponseLatency > 0 && avgResponseLatency <= 300 ? 15 : 0)
+        )
+      );
+
+    let brainState =
+      "Dormant";
+
+    if (brainHealthScore >= 90) {
+      brainState = "Hyper-Optimizing";
+    } else if (brainHealthScore >= 75) {
+      brainState = "Evolving";
+    } else if (brainHealthScore >= 55) {
+      brainState = "Adaptive";
+    } else if (brainHealthScore >= 35) {
+      brainState = "Learning";
+    }
+
+    return res.json({
+      ok: true,
+
+      health: {
+        brain_state:
+          brainState,
+
+        brain_health_score:
+          brainHealthScore,
+
+        learning_velocity:
+          optimizationMomentum,
+
+        strategy_confidence:
+          avgStrategyConfidence,
+
+        correlation_confidence:
+          avgCorrelationConfidence,
+
+        optimization_weight_avg:
+          avgWeight,
+
+        operator_response_latency:
+          avgResponseLatency,
+
+        memory_depth:
+          strategies.length,
+
+        evolution_events:
+          timeline.length,
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load brain health",
+    });
+  }
+});
+
+
+
+// GET BRAIN ACTIVITY HEAT
+app.get("/api/brain-activity-heat", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("brain_timeline_events")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load brain activity heat",
+      });
+    }
+
+    const events = data || [];
+
+    const buckets = {};
+
+    for (const event of events) {
+      const date =
+        new Date(event.created_at);
+
+      const hourKey =
+        `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,"0")}-${String(date.getUTCDate()).padStart(2,"0")} ${String(date.getUTCHours()).padStart(2,"0")}:00`;
+
+      buckets[hourKey] =
+        (buckets[hourKey] || 0) + 1;
+    }
+
+    const heat =
+      Object.entries(buckets)
+        .map(([time, intensity]) => ({
+          time,
+          intensity,
+        }))
+        .sort((a, b) =>
+          a.time.localeCompare(b.time)
+        );
+
+    return res.json({
+      ok: true,
+      heat,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load brain activity heat",
+    });
+  }
+});
+
+
+
+// GET PREDICTION DRIFT
+app.get("/api/prediction-drift", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("predictive_insights")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("updated_at", { ascending: true })
+      .limit(100);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load prediction drift",
+      });
+    }
+
+    const drift =
+      (data || []).map((item) => ({
+        company:
+          item.company,
+
+        close_probability:
+          item.close_probability,
+
+        recovery_probability:
+          item.recovery_probability,
+
+        stale_risk:
+          item.stale_risk,
+
+        updated_at:
+          item.updated_at,
+      }));
+
+    return res.json({
+      ok: true,
+      drift,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load prediction drift",
+    });
+  }
+});
+
+
+
+// GET NEURAL MEMORY DENSITY
+app.get("/api/neural-memory-density", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const [
+      strategyResult,
+      memoryResult,
+      correlationResult,
+      timelineResult,
+    ] = await Promise.all([
+      supabase
+        .from("strategy_memory")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("lead_memory")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("operator_outcome_correlations")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("brain_timeline_events")
+        .select("*")
+        .eq("business_id", businessId),
+    ]);
+
+    const strategies =
+      strategyResult.data || [];
+
+    const memories =
+      memoryResult.data || [];
+
+    const correlations =
+      correlationResult.data || [];
+
+    const timeline =
+      timelineResult.data || [];
+
+    const density =
+      (
+        strategies.length * 2 +
+        memories.length * 1.5 +
+        correlations.length * 3 +
+        timeline.length
+      );
+
+    return res.json({
+      ok: true,
+
+      density: {
+        neural_density:
+          density,
+
+        strategies:
+          strategies.length,
+
+        memories:
+          memories.length,
+
+        correlations:
+          correlations.length,
+
+        mutations:
+          timeline.length,
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load neural density",
+    });
+  }
+});
+
+
+
+// GET BRAIN CONSCIOUSNESS INDEX
+app.get("/api/brain-consciousness", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const [healthRes, densityRes, heatRes] =
+      await Promise.all([
+        fetch(`http://localhost:3002/api/brain-health?business_id=${businessId}`),
+        fetch(`http://localhost:3002/api/neural-memory-density?business_id=${businessId}`),
+        fetch(`http://localhost:3002/api/brain-activity-heat?business_id=${businessId}`),
+      ]);
+
+    const healthData = await healthRes.json();
+    const densityData = await densityRes.json();
+    const heatData = await heatRes.json();
+
+    const health =
+      healthData.health || {};
+
+    const density =
+      densityData.density || {};
+
+    const heat =
+      heatData.heat || [];
+
+    const recentHeat =
+      heat.reduce(
+        (sum, item) => sum + (item.intensity || 0),
+        0
+      );
+
+    const consciousnessIndex =
+      Math.min(
+        100,
+        Math.round(
+          (health.brain_health_score || 0) * 0.45 +
+          Math.min(density.neural_density || 0, 50) * 0.7 +
+          Math.min(recentHeat, 20) * 1.0
+        )
+      );
+
+    let consciousnessState =
+      "Dormant";
+
+    if (consciousnessIndex >= 90) {
+      consciousnessState = "Highly Aware";
+    } else if (consciousnessIndex >= 75) {
+      consciousnessState = "Self-Optimizing";
+    } else if (consciousnessIndex >= 55) {
+      consciousnessState = "Adaptive";
+    } else if (consciousnessIndex >= 35) {
+      consciousnessState = "Learning";
+    }
+
+    return res.json({
+      ok: true,
+      consciousness: {
+        consciousness_index:
+          consciousnessIndex,
+
+        consciousness_state:
+          consciousnessState,
+
+        brain_state:
+          health.brain_state,
+
+        neural_density:
+          density.neural_density || 0,
+
+        recent_activity_heat:
+          recentHeat,
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load brain consciousness",
+    });
+  }
+});
+
+
+
+// RECORD REAL OUTCOME FEEDBACK
+app.post("/api/outcome-feedback", async (req, res) => {
+  try {
+    const {
+      business_id = "liminull",
+      company,
+      outcome_type,
+      success = false,
+      notes = "",
+    } = req.body;
+
+    if (!company || !outcome_type) {
+      return res.status(400).json({
+        ok: false,
+        error: "company and outcome_type required",
+      });
+    }
+
+    const contributingFactors = [];
+
+    const notesLower =
+      notes.toLowerCase();
+
+    if (notesLower.includes("onboarding")) {
+      contributingFactors.push("onboarding");
+    }
+
+    if (
+      notesLower.includes("fast") ||
+      notesLower.includes("quick")
+    ) {
+      contributingFactors.push("fast_response");
+    }
+
+    const { data, error } = await supabase
+      .from("workflow_outcomes")
+      .insert([
+        {
+          business_id,
+          company,
+          outcome_type,
+          success,
+          notes,
+          created_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    await supabase
+      .from("prediction_outcomes")
+      .insert([
+        {
+          business_id,
+          company,
+
+          prediction_type:
+            outcome_type,
+
+          predicted_value:
+            success ? 100 : 0,
+
+          actual_outcome:
+            outcome_type,
+
+          success,
+
+          contributing_factors:
+            contributingFactors,
+        },
+      ]);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to record outcome feedback",
+      });
+    }
+
+    // REAL STRATEGY REINFORCEMENT
+
+    const strategyMatches =
+      await supabase
+        .from("strategy_memory")
+        .select("*")
+        .eq("business_id", business_id);
+
+    for (const strategy of strategyMatches.data || []) {
+
+      let shouldReinforce = false;
+
+      const category =
+        (strategy.category || "").toLowerCase();
+
+      const notesLower =
+        notes.toLowerCase();
+
+      if (
+        category.includes("onboarding") &&
+        notesLower.includes("onboarding")
+      ) {
+        shouldReinforce = true;
+      }
+
+      if (
+        category.includes("urgency") &&
+        notesLower.includes("fast")
+      ) {
+        shouldReinforce = true;
+      }
+
+      if (!shouldReinforce) {
+        continue;
+      }
+
+      const current =
+        strategy.adaptive_confidence ||
+        strategy.confidence ||
+        50;
+
+      const updated =
+        success
+          ? Math.min(100, current + 4)
+          : Math.max(10, current - 3);
+
+      await supabase
+        .from("strategy_memory")
+        .update({
+          adaptive_confidence: updated,
+        })
+        .eq("id", strategy.id);
+
+      await supabase
+        .from("brain_timeline_events")
+        .insert([
+          {
+            business_id,
+
+            event_type:
+              "strategy_reinforced",
+
+            event_title:
+              strategy.category,
+
+            event_summary:
+              success
+                ? "Successful real-world outcome reinforced strategy confidence."
+                : "Negative outcome reduced strategy confidence.",
+
+            before_value:
+              String(current),
+
+            after_value:
+              String(updated),
+
+            source_table:
+              "strategy_memory",
+
+            source_id:
+              strategy.id,
+          },
+        ]);
+    }
+
+
+    // ASSOCIATION REINFORCEMENT FINAL
+
+    const associationsResult =
+      await supabase
+        .from("memory_associations")
+        .select("*")
+        .eq("business_id", business_id);
+
+    for (const association of associationsResult.data || []) {
+
+      const observation =
+        (association.observation || "").toLowerCase();
+
+      let relevant = false;
+
+      if (
+        notesLower.includes("onboarding") &&
+        observation.includes("onboarding")
+      ) {
+        relevant = true;
+      }
+
+      if (
+        (
+          notesLower.includes("fast") ||
+          notesLower.includes("quick")
+        ) &&
+        observation.includes("rapid")
+      ) {
+        relevant = true;
+      }
+
+      if (!relevant) {
+        continue;
+      }
+
+      const currentStrength =
+        Number(association.association_strength || 50);
+
+      const updatedStrength =
+        success
+          ? Math.min(100, currentStrength + 4)
+          : Math.max(10, currentStrength - 3);
+
+      await supabase
+        .from("memory_associations")
+        .update({
+          association_strength:
+            updatedStrength,
+
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq("id", association.id);
+
+      await supabase
+        .from("brain_timeline_events")
+        .insert([
+          {
+            business_id,
+
+            event_type:
+              "association_reinforced",
+
+            event_title:
+              `${association.source_memory} → ${association.target_memory}`,
+
+            event_summary:
+              success
+                ? "Successful outcome strengthened associative reasoning."
+                : "Failed outcome weakened associative reasoning.",
+
+            before_value:
+              String(currentStrength),
+
+            after_value:
+              String(updatedStrength),
+
+            source_table:
+              "memory_associations",
+
+            source_id:
+              association.id,
+          },
+        ]);
+    }
+
+
+    // INTERVENTION CHAIN REINFORCEMENT
+
+    const chainResult =
+      await supabase
+        .from("intervention_chains")
+        .select("*")
+        .eq("business_id", business_id);
+
+    for (const chain of chainResult.data || []) {
+      const actionsText =
+        JSON.stringify(chain.ordered_actions || []).toLowerCase();
+
+      let relevant = false;
+
+      if (
+        notesLower.includes("onboarding") &&
+        actionsText.includes("onboarding")
+      ) {
+        relevant = true;
+      }
+
+      if (
+        (
+          notesLower.includes("fast") ||
+          notesLower.includes("quick")
+        ) &&
+        actionsText.includes("respond_under_15_minutes")
+      ) {
+        relevant = true;
+      }
+
+      if (!relevant) {
+        continue;
+      }
+
+      const currentStrength =
+        Number(chain.adaptive_strength || 50);
+
+      const updatedStrength =
+        success
+          ? Math.min(100, currentStrength + 5)
+          : Math.max(10, currentStrength - 4);
+
+      await supabase
+        .from("intervention_chains")
+        .update({
+          adaptive_strength: updatedStrength,
+          success_count: success
+            ? Number(chain.success_count || 0) + 1
+            : Number(chain.success_count || 0),
+          failure_count: success
+            ? Number(chain.failure_count || 0)
+            : Number(chain.failure_count || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", chain.id);
+
+      await supabase
+        .from("brain_timeline_events")
+        .insert([
+          {
+            business_id,
+            event_type: "intervention_chain_reinforced",
+            event_title: chain.chain_name,
+            event_summary: success
+              ? "Successful outcome strengthened intervention chain."
+              : "Failed outcome weakened intervention chain.",
+            before_value: String(currentStrength),
+            after_value: String(updatedStrength),
+            source_table: "intervention_chains",
+            source_id: chain.id,
+          },
+        ]);
+    }
+
+    return res.json({
+      ok: true,
+      outcome: data,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to record outcome feedback",
+    });
+  }
+});
+
+
+
+// GET MEMORY ASSOCIATIONS
+app.get("/api/memory-associations", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("memory_associations")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("association_strength", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load memory associations",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      associations: data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load memory associations",
+    });
+  }
+});
+
+
+
+// GENERATE TEMPORAL BEHAVIOR PATTERNS
+app.post("/api/temporal-patterns/generate", async (req, res) => {
+  try {
+    const businessId =
+      req.body.business_id || "liminull";
+
+    const [outcomeResult, actionResult] =
+      await Promise.all([
+        supabase
+          .from("workflow_outcomes")
+          .select("*")
+          .eq("business_id", businessId),
+
+        supabase
+          .from("operator_actions")
+          .select("*")
+          .eq("business_id", businessId),
+      ]);
+
+    const patterns =
+      generateTemporalPatterns({
+        outcomes:
+          outcomeResult.data || [],
+        operatorActions:
+          actionResult.data || [],
+      });
+
+    if (patterns.length > 0) {
+      await supabase
+        .from("temporal_behavior_patterns")
+        .upsert(
+          patterns.map((pattern) => ({
+            business_id:
+              businessId,
+
+            ...pattern,
+
+            updated_at:
+              new Date().toISOString(),
+          })),
+          {
+            onConflict:
+              "business_id,pattern_type,observed_window",
+          }
+        );
+
+      for (const pattern of patterns) {
+        await supabase
+          .from("brain_timeline_events")
+          .insert([
+            {
+              business_id:
+                businessId,
+
+              event_type:
+                "temporal_pattern_detected",
+
+              event_title:
+                pattern.pattern_type,
+
+              event_summary:
+                pattern.observation,
+
+              before_value:
+                "",
+
+              after_value:
+                String(pattern.impact_score),
+
+              source_table:
+                "temporal_behavior_patterns",
+            },
+          ]);
+      }
+    }
+
+    return res.json({
+      ok: true,
+      patterns,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to generate temporal patterns",
+    });
+  }
+});
+
+
+
+// GENERATE TEMPORAL RESPONSE WINDOWS
+app.post("/api/temporal-windows/generate", async (req, res) => {
+  try {
+    const businessId =
+      req.body.business_id || "liminull";
+
+    const [outcomeResult, actionResult] =
+      await Promise.all([
+        supabase
+          .from("workflow_outcomes")
+          .select("*")
+          .eq("business_id", businessId),
+
+        supabase
+          .from("operator_actions")
+          .select("*")
+          .eq("business_id", businessId),
+      ]);
+
+    const windows =
+      generateTemporalWindows({
+        outcomes:
+          outcomeResult.data || [],
+        operatorActions:
+          actionResult.data || [],
+      });
+
+    for (const window of windows) {
+      await supabase
+        .from("temporal_response_windows")
+        .upsert(
+          {
+            business_id:
+              businessId,
+
+            ...window,
+
+            updated_at:
+              new Date().toISOString(),
+          },
+          {
+            onConflict:
+              "business_id,window_type,observed_window",
+          }
+        );
+    }
+
+    return res.json({
+      ok: true,
+      windows,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to generate temporal windows",
+    });
+  }
+});
+
+
+
+// GENERATE INTERVENTION SIMULATIONS
+app.post("/api/intervention-simulations/generate", async (req, res) => {
+  try {
+    const businessId =
+      req.body.business_id || "liminull";
+
+    const [
+      associationResult,
+      temporalPatternResult,
+      temporalWindowResult,
+    ] = await Promise.all([
+
+      supabase
+        .from("memory_associations")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("temporal_behavior_patterns")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("temporal_response_windows")
+        .select("*")
+        .eq("business_id", businessId),
+    ]);
+
+    const simulations =
+      generateInterventionSimulations({
+        associations:
+          associationResult.data || [],
+
+        temporalPatterns:
+          temporalPatternResult.data || [],
+
+        temporalWindows:
+          temporalWindowResult.data || [],
+      });
+
+    for (const simulation of simulations) {
+
+      await supabase
+        .from("intervention_simulations")
+        .upsert(
+          {
+            business_id:
+              businessId,
+
+            ...simulation,
+
+            updated_at:
+              new Date().toISOString(),
+          },
+          {
+            onConflict:
+              "business_id,simulation_type",
+          }
+        );
+
+      await supabase
+        .from("brain_timeline_events")
+        .insert([
+          {
+            business_id:
+              businessId,
+
+            event_type:
+              "intervention_simulated",
+
+            event_title:
+              simulation.simulation_type,
+
+            event_summary:
+              simulation.observation,
+
+            before_value:
+              "",
+
+            after_value:
+              String(simulation.probability_delta),
+
+            source_table:
+              "intervention_simulations",
+          },
+        ]);
+    }
+
+    return res.json({
+      ok: true,
+      simulations,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to generate intervention simulations",
+    });
+  }
+});
+
+
+
+// GET INTERVENTION SIMULATIONS
+app.get("/api/intervention-simulations", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("intervention_simulations")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("confidence", { ascending: false });
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Failed to load intervention simulations",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      simulations:
+        data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load intervention simulations",
+    });
+  }
+});
+
+
+
+// GENERATE INTERVENTION CHAINS
+app.post("/api/intervention-chains/generate", async (req, res) => {
+  try {
+    const businessId =
+      req.body.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("intervention_simulations")
+      .select("*")
+      .eq("business_id", businessId);
+
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load intervention simulations",
+      });
+    }
+
+    const chains =
+      generateInterventionChains({
+        simulations: data || [],
+      });
+
+    for (const chain of chains) {
+      await supabase
+        .from("intervention_chains")
+        .upsert(
+          {
+            business_id: businessId,
+            ...chain,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "business_id,chain_name",
+          }
+        );
+
+      await supabase
+        .from("brain_timeline_events")
+        .insert([
+          {
+            business_id: businessId,
+            event_type: "intervention_chain_generated",
+            event_title: chain.chain_name,
+            event_summary: chain.observation,
+            before_value: "",
+            after_value: String(chain.cumulative_probability_delta),
+            source_table: "intervention_chains",
+          },
+        ]);
+    }
+
+    return res.json({
+      ok: true,
+      chains,
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to generate intervention chains",
+    });
+  }
+});
+
+
+
+// GET INTERVENTION CHAINS
+app.get("/api/intervention-chains", async (req, res) => {
+  try {
+    const businessId =
+      req.query.business_id || "liminull";
+
+    const { data, error } = await supabase
+      .from("intervention_chains")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("confidence", { ascending: false });
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load intervention chains",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      chains: data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load intervention chains",
+    });
+  }
+});
+
+
+
+// GENERATE GLOBAL STRATEGY PATTERNS
+app.post("/api/global-patterns/generate", async (req, res) => {
+  try {
+
+    const { data, error } = await supabase
+      .from("strategy_memory")
+      .select("*");
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error: "Failed to load strategies",
+      });
+    }
+
+    const patterns =
+      generateGlobalPatterns({
+        strategies:
+          data || [],
+      });
+
+    for (const pattern of patterns) {
+
+      const existingPattern =
+        await supabase
+          .from("global_strategy_patterns")
+          .select("*")
+          .eq("industry", pattern.industry)
+          .eq("pattern_type", pattern.pattern_type)
+          .maybeSingle();
+
+      const previousConfidence =
+        Number(existingPattern.data?.confidence || 0);
+
+      await supabase
+        .from("global_strategy_patterns")
+        .upsert(
+          {
+            ...pattern,
+
+            updated_at:
+              new Date().toISOString(),
+          },
+          {
+            onConflict:
+              "industry,pattern_type",
+          }
+        );
+
+      if (!existingPattern.data) {
+        await supabase
+          .from("brain_timeline_events")
+          .insert([
+            {
+              business_id:
+                "liminull",
+
+              event_type:
+                "global_pattern_detected",
+
+              event_title:
+                `${pattern.industry}:${pattern.pattern_type}`,
+
+              event_summary:
+                pattern.observation,
+
+              before_value:
+                "",
+
+              after_value:
+                String(pattern.confidence),
+
+              source_table:
+                "global_strategy_patterns",
+            },
+          ]);
+      }
+
+      if (
+        existingPattern.data &&
+        Number(pattern.confidence || 0) >
+          previousConfidence
+      ) {
+        await supabase
+          .from("brain_timeline_events")
+          .insert([
+            {
+              business_id:
+                "liminull",
+
+              event_type:
+                "global_pattern_confidence_shift",
+
+              event_title:
+                `${pattern.industry}:${pattern.pattern_type}`,
+
+              event_summary:
+                pattern.recommendation,
+
+              before_value:
+                String(previousConfidence),
+
+              after_value:
+                String(pattern.confidence),
+
+              source_table:
+                "global_strategy_patterns",
+            },
+          ]);
+      }
+    }
+
+    return res.json({
+      ok: true,
+      patterns,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to generate global strategy patterns",
+    });
+  }
+});
+
+
+
+// GET GLOBAL STRATEGY PATTERNS
+app.get("/api/global-patterns", async (req, res) => {
+  try {
+
+    const { data, error } = await supabase
+      .from("global_strategy_patterns")
+      .select("*")
+      .order("confidence", { ascending: false });
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Failed to load global strategy patterns",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      patterns:
+        data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load global strategy patterns",
+    });
+  }
+});
+
+
+
+// APPLY GLOBAL WEIGHT ADAPTATION
+app.post("/api/global-weight-adaptation/apply", async (req, res) => {
+  try {
+
+    const { data, error } = await supabase
+      .from("global_strategy_patterns")
+      .select("*");
+
+    if (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Failed to load global strategy patterns",
+      });
+    }
+
+    const adjustments =
+      generateGlobalWeightAdjustments({
+        patterns:
+          data || [],
+      });
+
+    const applied = [];
+
+    for (const adjustment of adjustments) {
+
+      const existing =
+        await supabase
+          .from("runtime_optimization_weights")
+          .select("*")
+          .eq("business_id", "liminull")
+          .eq("weight_key", adjustment.weight_key)
+          .maybeSingle();
+
+      const current =
+        Number(existing.data?.weight_value || 1);
+
+      const matchingPattern =
+        (data || []).find((pattern) => {
+
+          if (
+            adjustment.weight_key ===
+              "fast_response_weight" &&
+            String(pattern.pattern_type || "")
+              .includes("rapid_response")
+          ) {
+            return true;
+          }
+
+          if (
+            adjustment.weight_key ===
+              "onboarding_reassurance_weight" &&
+            String(pattern.pattern_type || "")
+              .includes("onboarding")
+          ) {
+            return true;
+          }
+
+          return false;
+        });
+
+      const globalConfidence =
+        Number(matchingPattern?.confidence || 0);
+
+      const lastConfidence =
+        Number(
+          existing.data?.global_confidence_snapshot || 0
+        );
+
+      if (
+        globalConfidence <= lastConfidence
+      ) {
+        continue;
+      }
+
+      const updated =
+        Number(
+          Math.min(
+            5,
+            Math.max(
+              0.25,
+              current + adjustment.delta
+            )
+          ).toFixed(2)
+        );
+
+      if (existing.data?.id) {
+        await supabase
+          .from("runtime_optimization_weights")
+          .update({
+            weight_value:
+              updated,
+
+            global_confidence_snapshot:
+              globalConfidence,
+
+            reasoning:
+              adjustment.reasoning,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq("id", existing.data.id);
+      } else {
+        await supabase
+          .from("runtime_optimization_weights")
+          .insert([
+            {
+              business_id:
+                "liminull",
+
+              weight_key:
+                adjustment.weight_key,
+
+              weight_value:
+                updated,
+
+              global_confidence_snapshot:
+                globalConfidence,
+
+              reasoning:
+                adjustment.reasoning,
+
+              updated_at:
+                new Date().toISOString(),
+            },
+          ]);
+      }
+
+      if (updated !== current) {
+        await supabase
+          .from("brain_timeline_events")
+          .insert([
+            {
+              business_id:
+                "liminull",
+
+              event_type:
+                "global_weight_adaptation",
+
+              event_title:
+                adjustment.weight_key,
+
+              event_summary:
+                adjustment.reasoning,
+
+              before_value:
+                String(current),
+
+              after_value:
+                String(updated),
+
+              source_table:
+                "runtime_optimization_weights",
+            },
+          ]);
+      }
+
+      applied.push({
+        weight_key:
+          adjustment.weight_key,
+
+        before:
+          current,
+
+        after:
+          updated,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      adjustments:
+        applied,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to apply global weight adaptation",
     });
   }
 });
@@ -263,6 +1919,52 @@ app.post("/api/operator-correlations/generate", async (req, res) => {
     }
 
     if (correlations.length > 0) {
+
+      for (const correlation of correlations) {
+
+        const existingCorrelation =
+          await supabase
+            .from("operator_outcome_correlations")
+            .select("*")
+            .eq("business_id", business_id)
+            .eq("correlation_type", correlation.correlation_type)
+            .maybeSingle();
+
+        const previousConfidence =
+          existingCorrelation.data?.confidence || 0;
+
+        if (
+          correlation.confidence > previousConfidence
+        ) {
+
+          await supabase
+            .from("brain_timeline_events")
+            .insert([
+              {
+                business_id,
+
+                event_type:
+                  "correlation_confidence_increase",
+
+                event_title:
+                  correlation.correlation_type,
+
+                event_summary:
+                  correlation.observation,
+
+                before_value:
+                  String(previousConfidence),
+
+                after_value:
+                  String(correlation.confidence),
+
+                source_table:
+                  "operator_outcome_correlations",
+              },
+            ]);
+        }
+      }
+
       await supabase
         .from("operator_outcome_correlations")
         .upsert(
@@ -272,10 +1974,33 @@ app.post("/api/operator-correlations/generate", async (req, res) => {
           }
         );
 
-      const adjustments =
-        generateWeightAdjustments({
-          correlations,
-        });
+      const adjustments = [];
+
+      for (const correlation of correlations) {
+
+        const existingCorrelation =
+          await supabase
+            .from("operator_outcome_correlations")
+            .select("*")
+            .eq("business_id", business_id)
+            .eq("correlation_type", correlation.correlation_type)
+            .maybeSingle();
+
+        const previousConfidence =
+          existingCorrelation.data?.confidence || 0;
+
+        if (
+          correlation.confidence > previousConfidence
+        ) {
+
+          const generated =
+            generateWeightAdjustments({
+              correlations: [correlation],
+            });
+
+          adjustments.push(...generated);
+        }
+      }
 
       for (const adjustment of adjustments) {
 
@@ -287,15 +2012,19 @@ app.post("/api/operator-correlations/generate", async (req, res) => {
             .maybeSingle();
 
         const current =
-          existing.data?.weight_value || 1.0;
+          Number(
+            Number(existing.data?.weight_value || 1.0).toFixed(2)
+          );
 
         const updated =
-          Math.min(
-            3,
-            Math.max(
-              0.25,
-              Number(current) + adjustment.delta
-            )
+          Number(
+            Math.min(
+              3,
+              Math.max(
+                0.25,
+                Number(current) + adjustment.delta
+              )
+            ).toFixed(2)
           );
 
         await supabase
@@ -1216,6 +2945,58 @@ app.post("/api/inbound/resend", async (req, res) => {
           })
           .limit(8);
 
+      const associations =
+        extractMemoryAssociations({
+          memory,
+          strategies:
+            strategyResult.data || [],
+        });
+
+      if (associations.length > 0) {
+
+        for (const association of associations) {
+
+          const existingAssociation =
+            await supabase
+              .from("memory_associations")
+              .select("*")
+              .eq("business_id", businessId || "liminull")
+              .eq("source_memory", association.source_memory)
+              .eq("target_memory", association.target_memory)
+              .maybeSingle();
+
+          const existingStrength =
+            Number(existingAssociation.data?.association_strength || 0);
+
+          const nextStrength =
+            Math.max(
+              existingStrength,
+              Number(association.association_strength || 0)
+            );
+
+          await supabase
+            .from("memory_associations")
+            .upsert(
+              {
+                business_id:
+                  businessId || "liminull",
+
+                ...association,
+
+                association_strength:
+                  nextStrength,
+
+                updated_at:
+                  new Date().toISOString(),
+              },
+              {
+                onConflict:
+                  "business_id,source_memory,target_memory",
+              }
+            );
+        }
+      }
+
       predictiveInsights =
         generatePredictiveInsights({
           lead: updatedLead,
@@ -1242,6 +3023,221 @@ app.post("/api/inbound/resend", async (req, res) => {
             correlationResult.data || [],
           weights:
             weightResult.data || [],
+        });
+
+      const predictionOutcomeResult =
+        await supabase
+          .from("prediction_outcomes")
+          .select("*")
+          .eq("business_id", businessId || "liminull")
+          .eq("company", company);
+
+      predictiveInsights =
+        calibratePredictiveInsights({
+          predictiveInsights,
+          predictionOutcomes:
+            predictionOutcomeResult.data || [],
+        });
+
+      const associationResult =
+        await supabase
+          .from("memory_associations")
+          .select("*")
+          .eq("business_id", businessId || "liminull")
+          .order("updated_at", { ascending: false });
+
+      predictiveInsights =
+        applyAssociationReasoning({
+          predictiveInsights,
+          associations:
+            associationResult.data || [],
+        });
+
+      const temporalPatternResult =
+        await supabase
+          .from("temporal_behavior_patterns")
+          .select("*")
+          .eq("business_id", businessId || "liminull");
+
+      predictiveInsights =
+        applyTemporalReasoning({
+          predictiveInsights,
+          temporalPatterns:
+            temporalPatternResult.data || [],
+        });
+
+      const temporalWindowResult =
+        await supabase
+          .from("temporal_response_windows")
+          .select("*")
+          .eq("business_id", businessId || "liminull");
+
+      predictiveInsights =
+        applyTemporalWindowReasoning({
+          predictiveInsights,
+          temporalWindows:
+            temporalWindowResult.data || [],
+        });
+
+      predictiveInsights =
+        applyUrgencyDecay({
+          lead: updatedLead || leadData || {},
+          predictiveInsights,
+        });
+
+      const simulationResult =
+        await supabase
+          .from("intervention_simulations")
+          .select("*")
+          .eq("business_id", businessId || "liminull");
+
+      predictiveInsights =
+        applySimulationPriority({
+          predictiveInsights,
+          simulations:
+            simulationResult.data || [],
+        });
+
+      const chainResult =
+        await supabase
+          .from("intervention_chains")
+          .select("*")
+          .eq("business_id", businessId || "liminull");
+
+      predictiveInsights =
+        applyChainPriority({
+          predictiveInsights,
+          chains:
+            chainResult.data || [],
+        });
+
+      const globalPatternResult =
+        await supabase
+          .from("global_strategy_patterns")
+          .select("*")
+          .order("confidence", { ascending: false });
+
+      predictiveInsights =
+        applyGlobalPatternReasoning({
+          predictiveInsights,
+          globalPatterns:
+            globalPatternResult.data || [],
+        });
+
+      if (
+        predictionOutcomeResult.data &&
+        predictionOutcomeResult.data.length > 0
+      ) {
+
+        await supabase
+          .from("brain_timeline_events")
+          .insert([
+            {
+              business_id:
+                businessId || "liminull",
+
+              event_type:
+                "prediction_calibrated",
+
+              event_title:
+                company,
+
+              event_summary:
+                `Prediction engine calibrated using ${predictionOutcomeResult.data.length} historical outcome(s).`,
+
+              before_value:
+                "",
+
+              after_value:
+                "",
+
+              source_table:
+                "prediction_outcomes",
+            },
+          ]);
+      }
+
+      const previousInsight =
+        await supabase
+          .from("predictive_insights")
+          .select("*")
+          .eq("business_id", businessId || "liminull")
+          .eq("company", company)
+          .maybeSingle();
+
+      if (previousInsight.data) {
+
+        const prev =
+          previousInsight.data;
+
+        const mutations = [
+          [
+            "close_probability_shift",
+            prev.close_probability,
+            predictiveInsights.close_probability,
+          ],
+          [
+            "recovery_probability_shift",
+            prev.recovery_probability,
+            predictiveInsights.recovery_probability,
+          ],
+          [
+            "stale_risk_shift",
+            prev.stale_risk,
+            predictiveInsights.stale_risk,
+          ],
+        ];
+
+        for (const [type, before, after] of mutations) {
+
+          if (before !== after) {
+
+            await supabase
+              .from("brain_timeline_events")
+              .insert([
+                {
+                  business_id:
+                    businessId || "liminull",
+
+                  event_type:
+                    type,
+
+                  event_title:
+                    company,
+
+                  event_summary:
+                    `Prediction calibration adjusted ${type.replaceAll("_", " ")}.`,
+
+                  before_value:
+                    String(before),
+
+                  after_value:
+                    String(after),
+
+                  source_table:
+                    "predictive_insights",
+                },
+              ]);
+          }
+        }
+      }
+
+      predictiveInsights.insight_signature =
+        JSON.stringify({
+          closeProbability:
+            predictiveInsights.close_probability,
+
+          responseProbability:
+            predictiveInsights.response_probability,
+
+          staleRisk:
+            predictiveInsights.stale_risk,
+
+          recoveryProbability:
+            predictiveInsights.recovery_probability,
+
+          recommendedIntervention:
+            predictiveInsights.recommended_intervention,
         });
 
       await supabase
