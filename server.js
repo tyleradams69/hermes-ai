@@ -67,6 +67,7 @@ import { detectWorkerHealth } from "./worker-health-engine.js";
 import { generateWorkerRecovery } from "./worker-recovery-engine.js";
 import { evaluateSystemMode } from "./degraded-mode-engine.js";
 import { enforceSystemMode } from "./system-mode-guard.js";
+import { generateProactiveRecommendations } from "./proactive-engine.js";
 
 const app = express();
 
@@ -2538,6 +2539,655 @@ app.get("/api/operations-overview", async (req, res) => {
 });
 
 
+
+// CREATE BUSINESS / CLIENT
+app.post("/api/businesses", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) return;
+
+    const {
+      id,
+      name,
+      industry = "",
+      website = "",
+    } = req.body;
+
+    if (!id || !name) {
+      return res.status(400).json({
+        ok: false,
+        error: "id and name are required",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("businesses")
+      .upsert(
+        {
+          id,
+          name,
+          industry,
+          website,
+          status: "active",
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id",
+        }
+      )
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      business: data,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to create business",
+    });
+  }
+});
+
+
+
+// GET BUSINESSES
+app.get("/api/businesses", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) return;
+
+    const { data, error } = await supabase
+      .from("businesses")
+      .select("*")
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      businesses: data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load businesses",
+    });
+  }
+});
+
+
+
+// HERMES ASSISTANT
+app.post("/api/hermes-assistant", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin", "operator", "viewer"],
+    })) return;
+
+    const {
+      business_id,
+      question,
+      conversation_history = [],
+    } = req.body;
+
+    if (!business_id || !question) {
+      return res.status(400).json({
+        ok: false,
+        error: "business_id and question are required",
+      });
+    }
+
+    const [
+      businessResult,
+      leadsResult,
+      approvalsResult,
+      queueResult,
+      modeResult,
+      workerResult,
+      auditResult,
+    ] = await Promise.all([
+
+      supabase
+        .from("businesses")
+        .select("*")
+        .eq("id", business_id)
+        .maybeSingle(),
+
+      supabase
+        .from("leads")
+        .select("*")
+        .eq("business_id", business_id)
+        .limit(25),
+
+      supabase
+        .from("followup_approvals")
+        .select("*")
+        .eq("business_id", business_id)
+        .order("created_at", { ascending: false })
+        .limit(10),
+
+      supabase
+        .from("job_queue")
+        .select("*")
+        .eq("business_id", business_id)
+        .order("created_at", { ascending: false })
+        .limit(10),
+
+      supabase
+        .from("system_modes")
+        .select("*")
+        .eq("business_id", "global")
+        .maybeSingle(),
+
+      supabase
+        .from("worker_heartbeats")
+        .select("*"),
+
+      supabase
+        .from("audit_logs")
+        .select("*")
+        .eq("business_id", business_id)
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
+
+    const industryResult =
+      await supabase
+        .from("industry_profiles")
+        .select("*")
+        .eq(
+          "industry",
+          businessResult.data?.industry || ""
+        )
+        .maybeSingle();
+
+    const context = {
+      business: businessResult.data || null,
+      leads: leadsResult.data || [],
+      approvals: approvalsResult.data || [],
+      queue: queueResult.data || [],
+      systemMode: modeResult.data || null,
+      workers: workerResult.data || [],
+      audits: auditResult.data || [],
+
+      industryProfile:
+        industryResult.data || null,
+    };
+
+    const lower =
+      String(question || "").toLowerCase();
+
+    let answer =
+      "I reviewed the current Hermes operational context. ";
+
+    const suggestedActions = [];
+
+    const industryName =
+      context.business?.industry || null;
+
+    const industryProfile =
+      context.industryProfile || null;
+
+    if (industryName && industryProfile) {
+      answer += `This business operates in the ${industryName} industry. Hermes is using industry-specific operational intelligence patterns for recommendations. `;
+    }
+
+    const priorConversation =
+      Array.isArray(conversation_history)
+        ? conversation_history
+        : [];
+
+    const previousQuestions =
+      priorConversation
+        .map((item) => item.question)
+        .filter(Boolean)
+        .join(" | ");
+
+    if (lower.includes("degraded") || lower.includes("mode")) {
+      answer += `The system mode is currently "${context.systemMode?.mode || "unknown"}". Reason: ${context.systemMode?.reason || "No reason recorded."}`;
+    } else if (lower.includes("worker")) {
+      const online =
+        context.workers.filter((w) => w.status === "online").length;
+
+      answer += `There are ${online} online worker(s). Workers are responsible for background jobs like sending approved followups, processing automation, and keeping async workflows moving.`;
+    } else if (lower.includes("queue") || lower.includes("job")) {
+      const pending =
+        context.queue.filter((j) => j.status === "pending").length;
+
+      const completed =
+        context.queue.filter((j) => j.status === "completed").length;
+
+      answer += `The queue currently has ${pending} pending job(s) and ${completed} completed recent job(s).`;
+    } else if (lower.includes("approval") || lower.includes("followup")) {
+      const pending =
+        context.approvals.filter((a) => a.status === "pending").length;
+
+      const blocked =
+        context.approvals.filter((a) => a.status === "blocked").length;
+
+      answer += `There are ${pending} pending followup approval(s) and ${blocked} blocked approval(s). Blocked approvals usually happen because of safety rules, low confidence, role limits, or degraded mode.`;
+
+      suggestedActions.push({
+        action_type:
+          "review_approvals",
+
+        title:
+          "Review Blocked Approvals",
+
+        payload: {
+          blocked,
+        },
+      });
+    } else if (lower.includes("lead") || lower.includes("hot")) {
+      const hot =
+        context.leads.filter((l) => l.lead_temperature === "hot").length;
+
+      answer += `This business has ${context.leads.length} recent lead record(s), including ${hot} hot lead(s). Hermes scores leads based on interest signals, urgency, objections, relationship status, and predicted conversion behavior.`;
+    } else if (lower.includes("audit")) {
+      answer += `There are ${context.audits.length} recent audit event(s). Audit logs record who changed what, what the state was before, and what changed afterward.`;
+    } else if (
+      lower.includes("recover") ||
+      lower.includes("fix")
+    ) {
+
+      answer += `To recover operational issues, first check system mode, worker health, queue failures, and blocked approvals. Hermes typically enters degraded mode when worker instability or infrastructure risk is detected. Once workers stabilize and alerts clear, normal mode restores automatically.`;
+
+      suggestedActions.push({
+        action_type:
+          "open_operations",
+
+        title:
+          "Open Operations Center",
+
+        payload: {
+          route:
+            "/operations",
+        },
+      });
+
+    } else if (
+      lower.includes("why") &&
+      lower.includes("hot")
+    ) {
+
+      answer += `Hot leads are typically identified through urgency language, responsiveness, onboarding intent, pricing confirmation, fast reply cadence, and high predicted conversion probability. Hermes continuously learns these patterns from real outcomes.`;
+
+    } else if (
+      lower.includes("improve") ||
+      lower.includes("conversion")
+    ) {
+
+      answer += `Hermes currently recommends improving response speed, prioritizing high-intent buyers quickly, addressing onboarding concerns early, and maintaining rapid operator followup during active engagement windows.`;
+
+    } else if (
+      lower.includes("degraded")
+    ) {
+
+      answer += `Degraded mode activates automatically when Hermes detects infrastructure instability, such as stalled workers or operational risk. During degraded mode, certain automations are intentionally restricted for safety until the system stabilizes again.`;
+
+    } else if (
+      lower.includes("queue")
+    ) {
+
+      answer += `The queue system handles asynchronous operational execution such as sending followups and processing background workflows. Workers continuously process queued jobs independently from live API requests.`;
+
+      suggestedActions.push({
+        action_type:
+          "open_queue",
+
+        title:
+          "Inspect Queue Infrastructure",
+
+        payload: {
+          route:
+            "/operations",
+        },
+      });
+
+    } else {
+      answer += `For ${context.business?.name || business_id}, I see ${context.leads.length} lead(s), ${context.approvals.length} recent approval(s), ${context.queue.length} recent queue job(s), and system mode "${context.systemMode?.mode || "unknown"}".`;
+    }
+
+    await supabase
+      .from("assistant_conversations")
+      .insert([
+        {
+          business_id:
+            business_id,
+
+          actor_role:
+            req.headers["x-hermes-role"] || "unknown",
+
+          question,
+
+          answer,
+
+          conversation_context:
+            priorConversation,
+        },
+      ]);
+
+    return res.json({
+      ok: true,
+      answer,
+
+      remembered_context:
+        previousQuestions || null,
+
+      suggested_actions:
+        suggestedActions,
+
+      context_summary: {
+        business: context.business?.name || business_id,
+        leads: context.leads.length,
+        approvals: context.approvals.length,
+        queue_jobs: context.queue.length,
+        workers: context.workers.length,
+        mode: context.systemMode?.mode || "unknown",
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Hermes Assistant failed",
+    });
+  }
+});
+
+
+
+// GET PROACTIVE RECOMMENDATIONS
+app.get("/api/proactive-recommendations", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin", "operator"],
+    })) return;
+
+    const businessId =
+      req.query.business_id;
+
+    if (!businessId) {
+      return res.status(400).json({
+        ok: false,
+        error: "business_id required",
+      });
+    }
+
+    const [
+      businessResult,
+      leadsResult,
+      approvalsResult,
+      queueResult,
+      modeResult,
+      workerResult,
+    ] = await Promise.all([
+
+      supabase
+        .from("businesses")
+        .select("*")
+        .eq("id", businessId)
+        .maybeSingle(),
+
+      supabase
+        .from("leads")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("followup_approvals")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("job_queue")
+        .select("*")
+        .eq("business_id", businessId),
+
+      supabase
+        .from("system_modes")
+        .select("*")
+        .eq("business_id", "global")
+        .maybeSingle(),
+
+      supabase
+        .from("worker_heartbeats")
+        .select("*"),
+    ]);
+
+    const recommendations =
+      generateProactiveRecommendations({
+        business:
+          businessResult.data || null,
+
+        leads:
+          leadsResult.data || [],
+
+        approvals:
+          approvalsResult.data || [],
+
+        queue:
+          queueResult.data || [],
+
+        mode:
+          modeResult.data || null,
+
+        workers:
+          workerResult.data || [],
+      });
+
+    return res.json({
+      ok: true,
+      recommendations,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to generate proactive recommendations",
+    });
+  }
+});
+
+
+
+// RETRY DEAD LETTER JOB
+app.post("/api/dead-letter-jobs/:id/retry", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) return;
+
+    const id =
+      req.params.id;
+
+    const deadJobResult =
+      await supabase
+        .from("dead_letter_jobs")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+    const deadJob =
+      deadJobResult.data;
+
+    if (!deadJob) {
+      return res.status(404).json({
+        ok: false,
+        error: "Dead-letter job not found",
+      });
+    }
+
+    const { data, error } =
+      await supabase
+        .from("job_queue")
+        .insert([
+          {
+            business_id:
+              deadJob.business_id,
+
+            job_type:
+              deadJob.job_type,
+
+            payload:
+              deadJob.payload,
+
+            status:
+              "pending",
+
+            attempts:
+              0,
+
+            max_attempts:
+              3,
+          },
+        ])
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    await supabase
+      .from("brain_timeline_events")
+      .insert([
+        {
+          business_id:
+            deadJob.business_id,
+
+          event_type:
+            "dead_letter_retried",
+
+          event_title:
+            deadJob.job_type,
+
+          event_summary:
+            "Dead-letter job requeued by operator.",
+
+          before_value:
+            deadJob.id,
+
+          after_value:
+            data.id,
+
+          source_table:
+            "dead_letter_jobs",
+        },
+      ]);
+
+    return res.json({
+      ok: true,
+      requeued_job: data,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to retry dead-letter job",
+    });
+  }
+});
+
+
+
+// GET ASSISTANT CONVERSATIONS
+app.get("/api/assistant-conversations", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin", "operator"],
+    })) return;
+
+    const businessId =
+      req.query.business_id;
+
+    if (!businessId) {
+      return res.status(400).json({
+        ok: false,
+        error: "business_id required",
+      });
+    }
+
+    const { data, error } =
+      await supabase
+        .from("assistant_conversations")
+        .select("*")
+        .eq("business_id", businessId)
+        .order("created_at", {
+          ascending: false,
+        })
+        .limit(100);
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      conversations:
+        data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load assistant conversations",
+    });
+  }
+});
+
+
 const PORT = 3002;
 
 // GET OPERATOR OUTCOME CORRELATIONS
@@ -4314,11 +4964,18 @@ app.post("/api/followup-approvals/:id/status", automationLimiter, async (req, re
 // GET FOLLOWUP APPROVALS
 app.get("/api/followup-approvals", async (req, res) => {
   try {
+    const businessId =
+      requireBusinessId(req, res);
+
+    if (!businessId) {
+      return;
+    }
+
     const { data, error } = await supabase
       .from("followup_approvals")
       .select("*")
       .eq("status", "pending")
-      .eq("business_id", requireBusinessId(req, res))
+      .eq("business_id", businessId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -4348,6 +5005,13 @@ app.get("/api/followup-approvals", async (req, res) => {
 // GENERATE AI FOLLOWUP
 app.post("/api/lead/:company/generate-followup", async (req, res) => {
   try {
+    const businessId =
+      requireBusinessId(req, res);
+
+    if (!businessId) {
+      return;
+    }
+
     const company = req.params.company;
 
     const { data: lead, error } = await supabase
@@ -4451,10 +5115,14 @@ app.get("/api/state", async (req, res) => {
   const businessId =
     requireBusinessId(req, res);
 
+  if (!businessId) {
+    return;
+  }
+
   const state =
     await getAllLeads(businessId);
 
-  res.json(state);
+  return res.json(state);
 });
 
 // UPDATE LEAD PIPELINE STAGE
