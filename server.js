@@ -68,6 +68,8 @@ import { generateWorkerRecovery } from "./worker-recovery-engine.js";
 import { evaluateSystemMode } from "./degraded-mode-engine.js";
 import { enforceSystemMode } from "./system-mode-guard.js";
 import { generateProactiveRecommendations } from "./proactive-engine.js";
+import { generateExecutiveBriefing } from "./executive-briefing-engine.js";
+import { generateNotifications } from "./notification-engine.js";
 
 const app = express();
 
@@ -2747,7 +2749,7 @@ app.post("/api/hermes-assistant", async (req, res) => {
       String(question || "").toLowerCase();
 
     let answer =
-      "I reviewed the current Hermes operational context. ";
+      "I reviewed the current Liminull operational context. ";
 
     const suggestedActions = [];
 
@@ -2758,7 +2760,7 @@ app.post("/api/hermes-assistant", async (req, res) => {
       context.industryProfile || null;
 
     if (industryName && industryProfile) {
-      answer += `This business operates in the ${industryName} industry. Hermes is using industry-specific operational intelligence patterns for recommendations. `;
+      answer += `This business operates in the ${industryName} industry. Liminull is using industry-specific operational intelligence patterns for recommendations. `;
     }
 
     const priorConversation =
@@ -2819,7 +2821,7 @@ app.post("/api/hermes-assistant", async (req, res) => {
       lower.includes("fix")
     ) {
 
-      answer += `To recover operational issues, first check system mode, worker health, queue failures, and blocked approvals. Hermes typically enters degraded mode when worker instability or infrastructure risk is detected. Once workers stabilize and alerts clear, normal mode restores automatically.`;
+      answer += `To recover operational issues, first check system mode, worker health, queue failures, and blocked approvals. Liminull typically enters degraded mode when worker instability or infrastructure risk is detected. Once workers stabilize and alerts clear, normal mode restores automatically.`;
 
       suggestedActions.push({
         action_type:
@@ -2839,14 +2841,14 @@ app.post("/api/hermes-assistant", async (req, res) => {
       lower.includes("hot")
     ) {
 
-      answer += `Hot leads are typically identified through urgency language, responsiveness, onboarding intent, pricing confirmation, fast reply cadence, and high predicted conversion probability. Hermes continuously learns these patterns from real outcomes.`;
+      answer += `Hot leads are typically identified through urgency language, responsiveness, onboarding intent, pricing confirmation, fast reply cadence, and high predicted conversion probability. Liminull continuously learns these patterns from real outcomes.`;
 
     } else if (
       lower.includes("improve") ||
       lower.includes("conversion")
     ) {
 
-      answer += `Hermes currently recommends improving response speed, prioritizing high-intent buyers quickly, addressing onboarding concerns early, and maintaining rapid operator followup during active engagement windows.`;
+      answer += `Liminull currently recommends improving response speed, prioritizing high-intent buyers quickly, addressing onboarding concerns early, and maintaining rapid operator followup during active engagement windows.`;
 
     } else if (
       lower.includes("degraded")
@@ -3012,9 +3014,42 @@ app.get("/api/proactive-recommendations", async (req, res) => {
           workerResult.data || [],
       });
 
+    const notifications =
+      generateNotifications({
+        recommendations,
+      });
+
+    for (const notification of notifications) {
+
+      await supabase
+        .from("notifications")
+        .insert([
+          {
+            business_id:
+              businessId,
+
+            notification_type:
+              notification.notification_type,
+
+            priority:
+              notification.priority,
+
+            title:
+              notification.title,
+
+            message:
+              notification.message,
+
+            delivery_channel:
+              notification.delivery_channel,
+          },
+        ]);
+    }
+
     return res.json({
       ok: true,
       recommendations,
+      notifications,
     });
 
   } catch (err) {
@@ -3183,6 +3218,301 @@ app.get("/api/assistant-conversations", async (req, res) => {
       ok: false,
       error:
         "Failed to load assistant conversations",
+    });
+  }
+});
+
+
+
+// GENERATE EXECUTIVE BRIEFING
+app.post("/api/executive-briefing", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin", "operator"],
+    })) return;
+
+    const {
+      business_id,
+    } = req.body;
+
+    if (!business_id) {
+      return res.status(400).json({
+        ok: false,
+        error: "business_id required",
+      });
+    }
+
+    const [
+      businessResult,
+      leadsResult,
+      approvalsResult,
+      queueResult,
+      workersResult,
+      modeResult,
+      proactiveResult,
+    ] = await Promise.all([
+
+      supabase
+        .from("businesses")
+        .select("*")
+        .eq("id", business_id)
+        .maybeSingle(),
+
+      supabase
+        .from("leads")
+        .select("*")
+        .eq("business_id", business_id),
+
+      supabase
+        .from("followup_approvals")
+        .select("*")
+        .eq("business_id", business_id),
+
+      supabase
+        .from("job_queue")
+        .select("*")
+        .eq("business_id", business_id),
+
+      supabase
+        .from("worker_heartbeats")
+        .select("*"),
+
+      supabase
+        .from("system_modes")
+        .select("*")
+        .eq("business_id", "global")
+        .maybeSingle(),
+
+      supabase
+        .from("proactive_recommendations")
+        .select("*")
+        .eq("business_id", business_id),
+    ]);
+
+    const briefing =
+      generateExecutiveBriefing({
+        business:
+          businessResult.data || null,
+
+        leads:
+          leadsResult.data || [],
+
+        approvals:
+          approvalsResult.data || [],
+
+        queue:
+          queueResult.data || [],
+
+        workers:
+          workersResult.data || [],
+
+        mode:
+          modeResult.data || null,
+
+        recommendations:
+          proactiveResult.data || [],
+      });
+
+    const { data, error } =
+      await supabase
+        .from("executive_briefings")
+        .insert([
+          {
+            business_id,
+
+            briefing_type:
+              "daily",
+
+            title:
+              briefing.title,
+
+            summary:
+              briefing.summary,
+
+            risks:
+              briefing.risks,
+
+            recommendations:
+              briefing.recommendations,
+
+            metrics:
+              briefing.metrics,
+          },
+        ])
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      briefing: data,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to generate executive briefing",
+    });
+  }
+});
+
+
+
+// GET EXECUTIVE BRIEFINGS
+app.get("/api/executive-briefings", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin", "operator"],
+    })) return;
+
+    const businessId =
+      req.query.business_id;
+
+    if (!businessId) {
+      return res.status(400).json({
+        ok: false,
+        error: "business_id required",
+      });
+    }
+
+    const { data, error } =
+      await supabase
+        .from("executive_briefings")
+        .select("*")
+        .eq("business_id", businessId)
+        .order("created_at", {
+          ascending: false,
+        })
+        .limit(20);
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      briefings:
+        data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load executive briefings",
+    });
+  }
+});
+
+
+
+// GET NOTIFICATIONS
+app.get("/api/notifications", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin", "operator"],
+    })) return;
+
+    const businessId =
+      req.query.business_id;
+
+    if (!businessId) {
+      return res.status(400).json({
+        ok: false,
+        error: "business_id required",
+      });
+    }
+
+    const { data, error } =
+      await supabase
+        .from("notifications")
+        .select("*")
+        .eq("business_id", businessId)
+        .eq("status", "pending")
+        .order("created_at", {
+          ascending: false,
+        })
+        .limit(50);
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      notifications:
+        data || [],
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to load notifications",
+    });
+  }
+});
+
+
+
+// MARK NOTIFICATION READ
+app.post("/api/notifications/:id/read", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin", "operator"],
+    })) return;
+
+    const id =
+      req.params.id;
+
+    const { data, error } =
+      await supabase
+        .from("notifications")
+        .update({
+          status: "read",
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      notification: data,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed to update notification",
     });
   }
 });
@@ -5105,7 +5435,7 @@ app.post("/api/lead/:company/generate-followup", async (req, res) => {
 app.get("/", (req, res) => {
 
   res.json({
-    status: "Hermes API online"
+    status: "Liminull API online"
   });
 });
 
