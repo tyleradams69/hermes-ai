@@ -3518,6 +3518,183 @@ app.post("/api/notifications/:id/read", async (req, res) => {
 });
 
 
+
+// SAVE BUSINESS SETTINGS / ONBOARDING CONFIG
+app.post("/api/business-settings", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) return;
+
+    const {
+      business_id,
+      supervision_mode = "supervised",
+      workflows_enabled = [],
+      onboarding_completed = false,
+    } = req.body;
+
+    if (!business_id) {
+      return res.status(400).json({
+        ok: false,
+        error: "business_id required",
+      });
+    }
+
+    const { data, error } =
+      await supabase
+        .from("business_settings")
+        .upsert(
+          {
+            business_id,
+            supervision_mode,
+            workflows_enabled,
+            onboarding_completed,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "business_id",
+          }
+        )
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      settings: data,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to save business settings",
+    });
+  }
+});
+
+
+
+// ONBOARDING READINESS CHECK
+app.get("/api/onboarding-readiness", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) return;
+
+    const businessId =
+      req.query.business_id;
+
+    if (!businessId) {
+      return res.status(400).json({
+        ok: false,
+        error: "business_id required",
+      });
+    }
+
+    const [
+      businessResult,
+      settingsResult,
+      workerResult,
+    ] = await Promise.all([
+
+      supabase
+        .from("businesses")
+        .select("*")
+        .eq("id", businessId)
+        .maybeSingle(),
+
+      supabase
+        .from("business_settings")
+        .select("*")
+        .eq("business_id", businessId)
+        .maybeSingle(),
+
+      supabase
+        .from("worker_heartbeats")
+        .select("*")
+        .eq("status", "online"),
+    ]);
+
+    const checks = [
+      {
+        id: "business",
+        label: "Business Created",
+        ok: !!businessResult.data,
+      },
+
+      {
+        id: "industry",
+        label: "Industry Configured",
+        ok: !!businessResult.data?.industry,
+      },
+
+      {
+        id: "supervision",
+        label: "Supervision Mode",
+        ok: !!settingsResult.data?.supervision_mode,
+      },
+
+      {
+        id: "workflows",
+        label: "Operational Workflows",
+        ok:
+          (settingsResult.data?.workflows_enabled || []).length > 0,
+      },
+
+      {
+        id: "workers",
+        label: "Worker Infrastructure",
+        ok:
+          (workerResult.data || []).length > 0,
+      },
+
+      {
+        id: "onboarding",
+        label: "Onboarding Completion",
+        ok:
+          settingsResult.data?.onboarding_completed === true,
+      },
+    ];
+
+    const readiness =
+      Math.round(
+        (
+          checks.filter((c) => c.ok).length /
+          checks.length
+        ) * 100
+      );
+
+    return res.json({
+      ok: true,
+      readiness,
+      checks,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed onboarding readiness check",
+    });
+  }
+});
+
+
 const PORT = 3002;
 
 // GET OPERATOR OUTCOME CORRELATIONS
