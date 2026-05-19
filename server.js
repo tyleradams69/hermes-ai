@@ -2,6 +2,7 @@ import "dotenv/config";
 import { supabase } from "./supabase-client.js";
 import express from "express";
 import cors from "cors";
+import crypto from "crypto";
 
 import {
   reviewFollowups
@@ -73,10 +74,55 @@ import { generateNotifications } from "./notification-engine.js";
 
 const app = express();
 
+const allowedOrigins =
+  (process.env.HERMES_ALLOWED_ORIGINS || "http://localhost:3000")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+function securityHeaders(req, res, next) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Cache-Control", "no-store");
+
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains"
+    );
+  }
+
+  next();
+}
+
+function requestContext(req, res, next) {
+  const requestId =
+    req.headers["x-request-id"] ||
+    crypto.randomUUID();
+
+  req.requestId = requestId;
+  res.setHeader("X-Request-Id", requestId);
+
+  next();
+}
+
+app.use(securityHeaders);
+app.use(requestContext);
 app.use(apiLimiter);
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Origin not allowed"));
+  },
+  credentials: true,
+}));
+app.use(express.json({ limit: "1mb" }));
 
 
 // GET RUNTIME OPTIMIZATION WEIGHTS
@@ -3690,6 +3736,104 @@ app.get("/api/onboarding-readiness", async (req, res) => {
       ok: false,
       error:
         "Failed onboarding readiness check",
+    });
+  }
+});
+
+
+
+// VERIFY INTEGRATION CONNECTION
+app.post("/api/verify-integration", async (req, res) => {
+  try {
+
+    if (!requireApiAuth(req, res)) return;
+
+    if (!requireRole({
+      req,
+      res,
+      allowedRoles: ["admin"],
+    })) return;
+
+    const {
+      type,
+      value,
+    } = req.body;
+
+    if (!type || !value) {
+      return res.status(400).json({
+        ok: false,
+        error: "type and value required",
+      });
+    }
+
+    let valid = false;
+    let reason = "";
+
+    // WEBSITE / WEBHOOK / CRM URL
+
+    if (
+      type === "website_form" ||
+      type === "calendar" ||
+      type === "crm"
+    ) {
+
+      try {
+
+        const parsed =
+          new URL(value);
+
+        valid =
+          ["http:", "https:"]
+            .includes(parsed.protocol);
+
+        if (!valid) {
+          reason =
+            "Invalid URL protocol";
+        }
+
+      } catch {
+        valid = false;
+        reason = "Invalid URL";
+      }
+    }
+
+    // EMAIL VALIDATION
+
+    if (
+      type === "email_inbox"
+    ) {
+
+      valid =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+          .test(value);
+
+      if (!valid) {
+        reason =
+          "Invalid email format";
+      }
+    }
+
+    return res.json({
+      ok: true,
+
+      verification: {
+        type,
+        value,
+        valid,
+        reason:
+          valid
+            ? "Connection verified"
+            : reason,
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        "Failed integration verification",
     });
   }
 });

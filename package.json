@@ -4,7 +4,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "security:audit": "npm audit --audit-level=moderate",
+    "test": "node --test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
@@ -16,5 +18,12 @@
     "openai": "^6.37.0",
     "playwright": "^1.60.0",
     "resend": "^6.12.3"
+  },
+  "overrides": {
+    "axios": "1.16.1",
+    "@qdrant/js-client-rest": "1.18.0",
+    "undici": "6.24.0",
+    "protobufjs": "8.4.0",
+    "ws": "8.20.1"
   }
 }

@@ -2,8 +2,5 @@ node_modules
 activity-log.json
 outreach-state.json
 .env
-.vercel
-git add .
-git commit -m "Hermes inbound reply runtime"
-git push
 .env.local
+.vercel
